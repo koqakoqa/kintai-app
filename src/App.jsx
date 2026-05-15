@@ -116,7 +116,7 @@ const reverseGeocode = async (lat, lng) => {
     const city = a.city || a.town || a.village || a.county || "";
     const state = a.state || a.province || "";
     return city ? `${state} ${city}`.trim() : state || "不明";
-  } catch {
+  } catch (e) {
     return null;
   }
 };
@@ -411,4 +411,4 @@ function LeaveView({ currentEmp, employees, isAdmin }) {
     await loadLeaves();
   };
 
-  const updateStatus = async (id, status) => { await api.upd
+  const updateStatus = async (id, status) => { await api

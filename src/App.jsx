@@ -59,64 +59,113 @@ const api = {
   }),
 };
 
-// ── Palette & helpers ─────────────────────────────────────────────────────────
-const COLORS = {
-  bg: "#0f1117", panel: "#16181f", card: "#1c1f2a", border: "#252836",
-  accent: "#4f8ef7", accentSoft: "#1e2d4f",
-  green: "#22c55e", greenSoft: "#14291e",
-  red: "#f87171", redSoft: "#2d1515",
-  yellow: "#fbbf24", yellowSoft: "#2d2208",
-  muted: "#6b7280", text: "#e2e8f0", textSub: "#94a3b8",
+// ── 佐野工業カラーパレット ────────────────────────────────────────────────────
+const C = {
+  // ベース
+  bg:        "#0a0e1a",
+  panel:     "#0d1424",
+  card:      "#111c30",
+  cardHover: "#162440",
+  border:    "#1e2d4a",
+  borderLight:"#2a3f60",
+  // ブランドブルー
+  primary:   "#1560bd",
+  primaryLt: "#1e7ae0",
+  primarySoft:"#0d2a5c",
+  accent:    "#3b9eff",
+  accentSoft:"#0a2040",
+  steel:     "#4a7fa5",
+  // ステータス
+  green:     "#00c896",
+  greenSoft: "#002a1f",
+  red:       "#ff5252",
+  redSoft:   "#2a0a0a",
+  yellow:    "#ffb300",
+  yellowSoft:"#2a1a00",
+  // テキスト
+  text:      "#e8edf5",
+  textSub:   "#8fa8c8",
+  muted:     "#4a6080",
+  // 特殊
+  gold:      "#c8a000",
+  gridLine:  "#1a2840",
 };
 
 const nowStr = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 const fmtDate = (s) => new Date(s).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" });
 const hhmm = (mins) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
-const fmtCoord = (lat, lng) => lat ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : null;
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-const Badge = ({ label, color = COLORS.accent }) => (
-  <span style={{ background: color + "22", color, padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600 }}>{label}</span>
-);
-const Card = ({ children, style = {} }) => (
-  <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: "20px 24px", ...style }}>{children}</div>
-);
-const StatBox = ({ label, value, sub, accent = COLORS.accent }) => (
-  <Card style={{ flex: 1, minWidth: 140 }}>
-    <div style={{ color: COLORS.textSub, fontSize: 12, marginBottom: 6 }}>{label}</div>
-    <div style={{ color: accent, fontSize: 28, fontWeight: 800, fontFamily: "monospace" }}>{value}</div>
-    {sub && <div style={{ color: COLORS.muted, fontSize: 11, marginTop: 4 }}>{sub}</div>}
-  </Card>
-);
-const Spinner = () => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-    <div style={{ width: 32, height: 32, border: `3px solid ${COLORS.border}`, borderTop: `3px solid ${COLORS.accent}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-  </div>
-);
-
-// ── GPS helper ────────────────────────────────────────────────────────────────
+// ── GPS ───────────────────────────────────────────────────────────────────────
 const getLocation = () =>
   new Promise((resolve) => {
     if (!navigator.geolocation) { resolve(null); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) }),
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
       () => resolve(null),
       { timeout: 8000, maximumAge: 0 }
     );
   });
 
-const GpsTag = ({ lat, lng, acc, loading }) => {
-  if (loading) return <span style={{ color: COLORS.yellow, fontSize: 11 }}>⟳ GPS取得中…</span>;
-  if (!lat) return <span style={{ color: COLORS.muted, fontSize: 11 }}>—</span>;
+const reverseGeocode = async (lat, lng) => {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ja`,
+      { headers: { "User-Agent": "SanoKogyo-Kintai/1.0" } }
+    );
+    const data = await res.json();
+    const a = data.address || {};
+    const city = a.city || a.town || a.village || a.county || "";
+    const state = a.state || a.province || "";
+    return city ? `${state} ${city}`.trim() : state || "不明";
+  } catch {
+    return null;
+  }
+};
+
+const GpsTag = ({ lat, lng, loading }) => {
+  const [place, setPlace] = useState(null);
+  useEffect(() => {
+    if (lat && lng) reverseGeocode(lat, lng).then(setPlace);
+  }, [lat, lng]);
+  if (loading) return <span style={{ color: C.yellow, fontSize: 11 }}>⟳ GPS取得中…</span>;
+  if (!lat) return <span style={{ color: C.muted, fontSize: 11 }}>—</span>;
   return (
     <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer"
-      style={{ color: COLORS.accent, fontSize: 11, textDecoration: "none" }}>
-      📍 {fmtCoord(lat, lng)} <span style={{ color: COLORS.muted }}>±{acc}m</span>
+      style={{ color: C.accent, fontSize: 11, textDecoration: "none" }}>
+      📍 {place || "取得中…"}
     </a>
   );
 };
 
-// ── Punch View ────────────────────────────────────────────────────────────────
+// ── 共通UI ────────────────────────────────────────────────────────────────────
+const Badge = ({ label, color = C.accent }) => (
+  <span style={{ background: color + "28", color, padding: "3px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", border: `1px solid ${color}44` }}>{label}</span>
+);
+
+const Card = ({ children, style = {} }) => (
+  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "20px 24px", position: "relative", overflow: "hidden", ...style }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.primary}, ${C.accent})` }} />
+    {children}
+  </div>
+);
+
+const StatBox = ({ label, value, sub, accent = C.accent, icon }) => (
+  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "18px 20px", flex: 1, minWidth: 140, position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}88, ${accent})` }} />
+    <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", fontSize: 32, opacity: 0.06 }}>{icon}</div>
+    <div style={{ color: C.textSub, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>{label}</div>
+    <div style={{ color: accent, fontSize: 26, fontWeight: 900, fontFamily: "monospace", letterSpacing: "-1px" }}>{value}</div>
+    {sub && <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>{sub}</div>}
+  </div>
+);
+
+const Spinner = () => (
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, flexDirection: "column", gap: 12 }}>
+    <div style={{ width: 36, height: 36, border: `3px solid ${C.border}`, borderTop: `3px solid ${C.accent}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+    <span style={{ color: C.muted, fontSize: 12 }}>読み込み中…</span>
+  </div>
+);
+
+// ── 打刻画面 ──────────────────────────────────────────────────────────────────
 function PunchView({ currentEmp }) {
   const [clock, setClock] = useState(new Date());
   const [today, setToday] = useState(null);
@@ -167,71 +216,100 @@ function PunchView({ currentEmp }) {
     } catch (e) { setError(e.message); setGpsLoading(false); }
   };
 
-  const Btn = ({ label, color, bg, onClick, disabled }) => (
+  const PunchBtn = ({ label, sublabel, color, bg, border, onClick, disabled, icon }) => (
     <button onClick={onClick} disabled={disabled || gpsLoading} style={{
-      background: disabled || gpsLoading ? COLORS.border : bg,
-      color: disabled || gpsLoading ? COLORS.muted : color,
-      border: "none", borderRadius: 12, padding: "14px 28px", fontWeight: 700, fontSize: 15,
-      cursor: disabled || gpsLoading ? "not-allowed" : "pointer", opacity: disabled || gpsLoading ? 0.5 : 1,
-    }}>{label}</button>
+      background: disabled || gpsLoading ? C.panel : bg,
+      color: disabled || gpsLoading ? C.muted : color,
+      border: `2px solid ${disabled || gpsLoading ? C.border : border}`,
+      borderRadius: 10, padding: "16px 24px", fontWeight: 800, fontSize: 15,
+      cursor: disabled || gpsLoading ? "not-allowed" : "pointer",
+      opacity: disabled || gpsLoading ? 0.4 : 1,
+      transition: "all .15s",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 110,
+    }}>
+      <span style={{ fontSize: 22 }}>{icon}</span>
+      <span>{label}</span>
+      {sublabel && <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>{sublabel}</span>}
+    </button>
   );
+
+  const statusColor = today?.status === "退勤済" ? C.muted : today?.status === "出勤中" ? C.green : C.yellow;
 
   return (
     <div>
-      <div style={{ textAlign: "center", marginBottom: 36 }}>
-        <div style={{ color: COLORS.textSub, fontSize: 13 }}>{fmtDate(new Date())}</div>
-        <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-2px", color: COLORS.text, fontFamily: "monospace" }}>
+      {/* 時計セクション */}
+      <div style={{
+        background: `linear-gradient(135deg, ${C.primarySoft}, ${C.accentSoft})`,
+        border: `1px solid ${C.borderLight}`,
+        borderRadius: 12, padding: "32px 24px", textAlign: "center", marginBottom: 24,
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, background: C.accent + "08", borderRadius: "50%", border: `1px solid ${C.accent}18` }} />
+        <div style={{ position: "absolute", bottom: -20, left: -20, width: 80, height: 80, background: C.primary + "10", borderRadius: "50%" }} />
+        <div style={{ color: C.textSub, fontSize: 13, fontWeight: 600, letterSpacing: "0.05em", marginBottom: 8 }}>{fmtDate(clock)}</div>
+        <div style={{ fontSize: 68, fontWeight: 900, letterSpacing: "-3px", color: C.text, fontFamily: "monospace", lineHeight: 1, marginBottom: 8 }}>
           {clock.toLocaleTimeString("ja-JP")}
         </div>
-        <div style={{ color: COLORS.textSub, fontSize: 14 }}>{currentEmp.name}（{currentEmp.dept}）</div>
+        <div style={{ color: C.textSub, fontSize: 14, fontWeight: 600 }}>
+          {currentEmp.name} <span style={{ color: C.muted, fontWeight: 400 }}>／ {currentEmp.dept}</span>
+        </div>
+        {today && (
+          <div style={{ marginTop: 12 }}>
+            <Badge label={today.status} color={statusColor} />
+          </div>
+        )}
       </div>
 
       {loading ? <Spinner /> : (
         <>
-          <Card style={{ maxWidth: 520, margin: "0 auto 28px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ color: COLORS.textSub, fontSize: 13 }}>本日の状況</span>
-              {today ? <Badge label={today.status} color={today.status === "退勤済" ? COLORS.muted : COLORS.green} /> : <Badge label="未打刻" color={COLORS.yellow} />}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+          {/* 本日の記録 */}
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ color: C.textSub, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>本日の勤務記録</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
               {[
-                { label: "出勤", val: today?.check_in?.slice(0,5) || "--:--" },
-                { label: "休憩", val: today ? `${today.break_mins || 0}分` : "--" },
-                { label: "退勤", val: today?.check_out?.slice(0,5) || "--:--" },
-              ].map(({ label, val }) => (
-                <div key={label} style={{ textAlign: "center" }}>
-                  <div style={{ color: COLORS.muted, fontSize: 11 }}>{label}</div>
-                  <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 18, fontFamily: "monospace" }}>{val}</div>
+                { label: "出勤時刻", val: today?.check_in?.slice(0,5) || "--:--", color: C.green },
+                { label: "休憩時間", val: today ? `${today.break_mins || 0}分` : "--", color: C.yellow },
+                { label: "退勤時刻", val: today?.check_out?.slice(0,5) || "--:--", color: C.accent },
+              ].map(({ label, val, color }) => (
+                <div key={label} style={{ textAlign: "center", background: C.panel, borderRadius: 8, padding: "12px 8px", border: `1px solid ${C.border}` }}>
+                  <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+                  <div style={{ color, fontWeight: 800, fontSize: 20, fontFamily: "monospace" }}>{val}</div>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* GPS情報 */}
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
               {today?.check_in && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: COLORS.muted, fontSize: 11, minWidth: 36 }}>出勤</span>
+                  <span style={{ color: C.muted, fontSize: 10, fontWeight: 700, minWidth: 40, textTransform: "uppercase" }}>出勤</span>
                   <GpsTag lat={today.check_in_lat} lng={today.check_in_lng} acc={today.check_in_acc} loading={gpsLoading && !today.check_out} />
                 </div>
               )}
               {today?.check_out && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: COLORS.muted, fontSize: 11, minWidth: 36 }}>退勤</span>
+                  <span style={{ color: C.muted, fontSize: 10, fontWeight: 700, minWidth: 40, textTransform: "uppercase" }}>退勤</span>
                   <GpsTag lat={today.check_out_lat} lng={today.check_out_lng} acc={today.check_out_acc} />
                 </div>
               )}
-              {!today && gpsLoading && <GpsTag loading={true} />}
+              {!today && !gpsLoading && (
+                <span style={{ color: C.muted, fontSize: 11 }}>打刻時にGPS位置を自動記録します</span>
+              )}
+              {gpsLoading && <GpsTag loading={true} />}
             </div>
           </Card>
 
-          {error && <div style={{ color: COLORS.red, textAlign: "center", marginBottom: 12, fontSize: 13 }}>⚠ {error}</div>}
+          {error && (
+            <div style={{ background: C.redSoft, border: `1px solid ${C.red}44`, borderRadius: 8, padding: "10px 16px", color: C.red, marginBottom: 16, fontSize: 13 }}>
+              ⚠ {error}
+            </div>
+          )}
 
+          {/* 打刻ボタン */}
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Btn label="🟢 出勤" color={COLORS.green} bg={COLORS.greenSoft} onClick={() => punch("checkIn")} disabled={!!today} />
-            <Btn label="☕ 休憩開始" color={COLORS.yellow} bg={COLORS.yellowSoft} onClick={() => punch("break")} disabled={!today || onBreak || !!today?.check_out} />
-            <Btn label="▶ 休憩終了" color={COLORS.accent} bg={COLORS.accentSoft} onClick={() => punch("resume")} disabled={!onBreak} />
-            <Btn label="🔴 退勤" color={COLORS.red} bg={COLORS.redSoft} onClick={() => punch("checkOut")} disabled={!today || !!today?.check_out} />
-          </div>
-          <div style={{ textAlign: "center", marginTop: 14, color: COLORS.muted, fontSize: 11 }}>
-            出勤・退勤打刻時にGPS位置情報を自動取得・Supabaseに保存します
+            <PunchBtn icon="🟢" label="出勤" sublabel="CHECK IN" color={C.green} bg={C.greenSoft} border={C.green} onClick={() => punch("checkIn")} disabled={!!today} />
+            <PunchBtn icon="☕" label="休憩開始" sublabel="BREAK" color={C.yellow} bg={C.yellowSoft} border={C.yellow} onClick={() => punch("break")} disabled={!today || onBreak || !!today?.check_out} />
+            <PunchBtn icon="▶" label="休憩終了" sublabel="RESUME" color={C.accent} bg={C.accentSoft} border={C.accent} onClick={() => punch("resume")} disabled={!onBreak} />
+            <PunchBtn icon="🔴" label="退勤" sublabel="CHECK OUT" color={C.red} bg={C.redSoft} border={C.red} onClick={() => punch("checkOut")} disabled={!today || !!today?.check_out} />
           </div>
         </>
       )}
@@ -239,7 +317,7 @@ function PunchView({ currentEmp }) {
   );
 }
 
-// ── History View ──────────────────────────────────────────────────────────────
+// ── 勤怠履歴 ─────────────────────────────────────────────────────────────────
 function HistoryView({ currentEmp, employees, isAdmin }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -255,54 +333,57 @@ function HistoryView({ currentEmp, employees, isAdmin }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatBox label="今月の総労働時間" value={hhmm(totalWork)} accent={COLORS.accent} />
-        <StatBox label="1日平均" value={hhmm(avgWork)} accent={COLORS.green} />
-        <StatBox label="出勤日数" value={`${rows.length}日`} accent={COLORS.yellow} />
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+        <StatBox label="今月の総労働時間" value={hhmm(totalWork)} accent={C.accent} icon="⏱" />
+        <StatBox label="1日平均労働時間" value={hhmm(avgWork)} accent={C.green} icon="📊" />
+        <StatBox label="出勤日数" value={`${rows.length}日`} accent={C.yellow} icon="📅" />
       </div>
+
       {isAdmin && (
         <div style={{ marginBottom: 16 }}>
           <select value={filterEmpId} onChange={(e) => setFilterEmpId(e.target.value)}
-            style={{ background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 14 }}>
+            style={{ background: C.card, color: C.text, border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 14 }}>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
         </div>
       )}
+
       {loading ? <Spinner /> : (
-        <Card style={{ padding: 0, overflow: "auto" }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "auto", position: "relative" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.primary}, ${C.accent})` }} />
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: COLORS.panel }}>
+              <tr style={{ background: C.panel }}>
                 {["日付","出勤","出勤地点","退勤","退勤地点","休憩","労働時間","状態"].map((h) => (
-                  <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: COLORS.muted, fontWeight: 600, whiteSpace: "nowrap" }}>{h}</th>
+                  <th key={h} style={{ padding: "13px 16px", textAlign: "left", color: C.textSub, fontWeight: 700, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", borderBottom: `1px solid ${C.border}` }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${COLORS.border}`, background: i % 2 === 0 ? "transparent" : COLORS.panel + "88" }}>
-                  <td style={{ padding: "11px 16px", color: COLORS.textSub, whiteSpace: "nowrap" }}>{fmtDate(r.date)}</td>
-                  <td style={{ padding: "11px 16px", color: COLORS.text, fontFamily: "monospace" }}>{r.check_in?.slice(0,5) || "--"}</td>
-                  <td style={{ padding: "11px 16px" }}><GpsTag lat={r.check_in_lat} lng={r.check_in_lng} acc={r.check_in_acc} /></td>
-                  <td style={{ padding: "11px 16px", color: COLORS.text, fontFamily: "monospace" }}>{r.check_out?.slice(0,5) || "--:--"}</td>
-                  <td style={{ padding: "11px 16px" }}><GpsTag lat={r.check_out_lat} lng={r.check_out_lng} acc={r.check_out_acc} /></td>
-                  <td style={{ padding: "11px 16px", color: COLORS.muted }}>{r.break_mins || 0}分</td>
-                  <td style={{ padding: "11px 16px", color: COLORS.accent, fontWeight: 700, fontFamily: "monospace" }}>{r.work_mins ? hhmm(r.work_mins) : "--"}</td>
-                  <td style={{ padding: "11px 16px" }}>
-                    <Badge label={r.status} color={r.status === "出勤中" ? COLORS.green : r.status === "退勤済" ? COLORS.muted : COLORS.yellow} />
+                <tr key={r.id} style={{ borderTop: `1px solid ${C.gridLine}`, background: i % 2 === 0 ? "transparent" : C.panel + "60" }}>
+                  <td style={{ padding: "12px 16px", color: C.textSub, whiteSpace: "nowrap", fontWeight: 600 }}>{fmtDate(r.date)}</td>
+                  <td style={{ padding: "12px 16px", color: C.green, fontFamily: "monospace", fontWeight: 700 }}>{r.check_in?.slice(0,5) || "--"}</td>
+                  <td style={{ padding: "12px 16px" }}><GpsTag lat={r.check_in_lat} lng={r.check_in_lng} acc={r.check_in_acc} /></td>
+                  <td style={{ padding: "12px 16px", color: C.accent, fontFamily: "monospace", fontWeight: 700 }}>{r.check_out?.slice(0,5) || "--:--"}</td>
+                  <td style={{ padding: "12px 16px" }}><GpsTag lat={r.check_out_lat} lng={r.check_out_lng} acc={r.check_out_acc} /></td>
+                  <td style={{ padding: "12px 16px", color: C.muted }}>{r.break_mins || 0}分</td>
+                  <td style={{ padding: "12px 16px", color: C.yellow, fontWeight: 800, fontFamily: "monospace" }}>{r.work_mins ? hhmm(r.work_mins) : "--"}</td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <Badge label={r.status} color={r.status === "出勤中" ? C.green : r.status === "退勤済" ? C.steel : C.yellow} />
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: COLORS.muted }}>データがありません</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={8} style={{ padding: 32, textAlign: "center", color: C.muted }}>データがありません</td></tr>}
             </tbody>
           </table>
-        </Card>
+        </div>
       )}
     </div>
   );
 }
 
-// ── Leave View ────────────────────────────────────────────────────────────────
+// ── 休暇申請 ─────────────────────────────────────────────────────────────────
 function LeaveView({ currentEmp, employees, isAdmin }) {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -330,229 +411,4 @@ function LeaveView({ currentEmp, employees, isAdmin }) {
     await loadLeaves();
   };
 
-  const updateStatus = async (id, status) => { await api.updateLeaveStatus(id, status); await loadLeaves(); };
-  const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h3 style={{ color: COLORS.text, margin: 0, fontSize: 16, fontWeight: 700 }}>{isAdmin ? "休暇申請一覧" : "マイ休暇申請"}</h3>
-        {!isAdmin && (
-          <button onClick={() => setShowForm(!showForm)} style={{
-            background: COLORS.accentSoft, color: COLORS.accent, border: `1px solid ${COLORS.accent}44`,
-            borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer",
-          }}>＋ 新規申請</button>
-        )}
-      </div>
-
-      {showForm && (
-        <Card style={{ marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div>
-              <label style={{ color: COLORS.textSub, fontSize: 12, display: "block", marginBottom: 4 }}>種別</label>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-                style={{ width: "100%", background: COLORS.panel, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                {["有給休暇","特別休暇","慶弔休暇","病気休暇"].map((t) => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ color: COLORS.textSub, fontSize: 12, display: "block", marginBottom: 4 }}>開始日</label>
-              <input type="date" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })}
-                style={{ width: "100%", background: COLORS.panel, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 10px" }} />
-            </div>
-            <div>
-              <label style={{ color: COLORS.textSub, fontSize: 12, display: "block", marginBottom: 4 }}>終了日</label>
-              <input type="date" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })}
-                style={{ width: "100%", background: COLORS.panel, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 10px" }} />
-            </div>
-          </div>
-          <button onClick={submit} disabled={submitting} style={{
-            background: COLORS.accent, color: "#fff", border: "none", borderRadius: 8,
-            padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1,
-          }}>{submitting ? "送信中…" : "申請する"}</button>
-        </Card>
-      )}
-
-      {loading ? <Spinner /> : (
-        <Card style={{ padding: 0, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: COLORS.panel }}>
-                {[...(isAdmin ? ["氏名"] : []),"種別","期間","日数","状態",...(isAdmin ? ["操作"] : [])].map((h) => (
-                  <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: COLORS.muted, fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {leaves.map((l, i) => (
-                <tr key={l.id} style={{ borderTop: `1px solid ${COLORS.border}`, background: i % 2 === 0 ? "transparent" : COLORS.panel + "88" }}>
-                  {isAdmin && <td style={{ padding: "11px 16px", color: COLORS.text }}>{empMap[l.employee_id]?.name || "—"}</td>}
-                  <td style={{ padding: "11px 16px", color: COLORS.textSub }}>{l.type}</td>
-                  <td style={{ padding: "11px 16px", color: COLORS.text, fontFamily: "monospace", fontSize: 12 }}>{l.from_date} → {l.to_date}</td>
-                  <td style={{ padding: "11px 16px", color: COLORS.accent, fontWeight: 700 }}>{l.days}日</td>
-                  <td style={{ padding: "11px 16px" }}>
-                    <Badge label={l.status} color={l.status === "承認済" ? COLORS.green : l.status === "却下" ? COLORS.red : COLORS.yellow} />
-                  </td>
-                  {isAdmin && (
-                    <td style={{ padding: "11px 16px" }}>
-                      {l.status === "申請中" && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => updateStatus(l.id, "承認済")} style={{ background: COLORS.greenSoft, color: COLORS.green, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>承認</button>
-                          <button onClick={() => updateStatus(l.id, "却下")} style={{ background: COLORS.redSoft, color: COLORS.red, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>却下</button>
-                        </div>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {leaves.length === 0 && <tr><td colSpan={10} style={{ padding: 24, textAlign: "center", color: COLORS.muted }}>申請がありません</td></tr>}
-            </tbody>
-          </table>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ── Dashboard View ────────────────────────────────────────────────────────────
-function DashboardView({ employees }) {
-  const [attendance, setAttendance] = useState([]);
-  const [leaves, setLeaves] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([api.getAllAttendance(), api.getAllLeaves()])
-      .then(([a, l]) => { setAttendance(a); setLeaves(l); })
-      .finally(() => setLoading(false));
-  }, []);
-
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayRecs = attendance.filter((r) => r.date === todayStr);
-  const checkedIn  = todayRecs.filter((r) => r.status === "出勤中").length;
-  const checkedOut = todayRecs.filter((r) => r.status === "退勤済").length;
-  const pending    = leaves.filter((l) => l.status === "申請中").length;
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <StatBox label="本日出勤中" value={`${checkedIn}人`} accent={COLORS.green} sub={`全${employees.length}名`} />
-        <StatBox label="退勤済み" value={`${checkedOut}人`} accent={COLORS.muted} />
-        <StatBox label="休暇申請（未処理）" value={`${pending}件`} accent={COLORS.yellow} />
-        <StatBox label="総従業員数" value={`${employees.length}名`} accent={COLORS.accent} />
-      </div>
-      {loading ? <Spinner /> : (
-        <Card>
-          <h3 style={{ color: COLORS.text, margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>従業員ステータス一覧</h3>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                {["氏名","部署","本日","有給残","今月稼働"].map((h) => (
-                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: COLORS.muted, fontWeight: 600, borderBottom: `1px solid ${COLORS.border}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {employees.map((e) => {
-                const rec = todayRecs.find((r) => r.employee_id === e.id);
-                const monthWork = attendance.filter((r) => r.employee_id === e.id).reduce((s, r) => s + (r.work_mins || 0), 0);
-                return (
-                  <tr key={e.id} style={{ borderBottom: `1px solid ${COLORS.border}22` }}>
-                    <td style={{ padding: "12px 12px", color: COLORS.text, fontWeight: 600 }}>{e.name}</td>
-                    <td style={{ padding: "12px 12px", color: COLORS.textSub }}>{e.dept}</td>
-                    <td style={{ padding: "12px 12px" }}>
-                      <Badge label={rec ? rec.status : "未出勤"}
-                        color={rec?.status === "出勤中" ? COLORS.green : rec?.status === "退勤済" ? COLORS.muted : COLORS.yellow} />
-                    </td>
-                    <td style={{ padding: "12px 12px", color: COLORS.green, fontWeight: 700, fontFamily: "monospace" }}>{(e.paid_days||0)-(e.used_paid_days||0)}日</td>
-                    <td style={{ padding: "12px 12px", color: COLORS.accent, fontFamily: "monospace" }}>{hhmm(monthWork)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ── Main App ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [employees, setEmployees] = useState([]);
-  const [currentEmpId, setCurrentEmpId] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [tab, setTab] = useState("punch");
-  const [loadingEmps, setLoadingEmps] = useState(true);
-  const [dbError, setDbError] = useState(null);
-
-  useEffect(() => {
-    api.getEmployees()
-      .then((emps) => { setEmployees(emps); setCurrentEmpId(emps[0]?.id || null); })
-      .catch((e) => setDbError(e.message))
-      .finally(() => setLoadingEmps(false));
-  }, []);
-
-  const currentEmp = employees.find((e) => e.id === currentEmpId);
-  const tabs = isAdmin
-    ? [{ id: "dashboard", label: "📊 ダッシュボード" }, { id: "history", label: "📋 勤怠一覧" }, { id: "leave", label: "📅 休暇申請" }]
-    : [{ id: "punch", label: "⏱ 打刻" }, { id: "history", label: "📋 勤怠履歴" }, { id: "leave", label: "📅 休暇申請" }];
-
-  useEffect(() => { setTab(isAdmin ? "dashboard" : "punch"); }, [isAdmin]);
-
-  return (
-    <div style={{ background: COLORS.bg, minHeight: "100vh", color: COLORS.text, fontFamily: "'Inter','Noto Sans JP',sans-serif" }}>
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-
-      <div style={{ background: COLORS.panel, borderBottom: `1px solid ${COLORS.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, background: COLORS.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>⏰</div>
-          <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-0.5px" }}>KintaiOS</span>
-          <span style={{ color: COLORS.muted, fontSize: 11, marginLeft: 4 }}>勤怠管理システム</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {!isAdmin && employees.length > 0 && (
-            <select value={currentEmpId || ""} onChange={(e) => setCurrentEmpId(e.target.value)}
-              style={{ background: COLORS.card, color: COLORS.text, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 13 }}>
-              {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          )}
-          <button onClick={() => setIsAdmin(!isAdmin)} style={{
-            background: isAdmin ? COLORS.accentSoft : COLORS.card,
-            color: isAdmin ? COLORS.accent : COLORS.textSub,
-            border: `1px solid ${isAdmin ? COLORS.accent + "55" : COLORS.border}`,
-            borderRadius: 8, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
-          }}>{isAdmin ? "👤 社員モード" : "🔑 管理者モード"}</button>
-        </div>
-      </div>
-
-      <div style={{ background: COLORS.panel, borderBottom: `1px solid ${COLORS.border}`, padding: "0 32px", display: "flex" }}>
-        {tabs.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            background: "none", border: "none",
-            borderBottom: tab === t.id ? `2px solid ${COLORS.accent}` : "2px solid transparent",
-            color: tab === t.id ? COLORS.accent : COLORS.muted,
-            padding: "14px 20px", fontWeight: 600, fontSize: 13, cursor: "pointer",
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      <div style={{ maxWidth: 1020, margin: "0 auto", padding: "32px 24px" }}>
-        {dbError && (
-          <div style={{ background: COLORS.redSoft, border: `1px solid ${COLORS.red}44`, borderRadius: 10, padding: "12px 20px", color: COLORS.red, marginBottom: 20, fontSize: 13 }}>
-            ⚠ Supabase接続エラー: {dbError}
-          </div>
-        )}
-        {loadingEmps ? <Spinner /> : currentEmp ? (
-          <>
-            {tab === "punch"     && <PunchView currentEmp={currentEmp} />}
-            {tab === "history"   && <HistoryView currentEmp={currentEmp} employees={employees} isAdmin={isAdmin} />}
-            {tab === "leave"     && <LeaveView currentEmp={currentEmp} employees={employees} isAdmin={isAdmin} />}
-            {tab === "dashboard" && <DashboardView employees={employees} />}
-          </>
-        ) : (
-          <div style={{ textAlign: "center", color: COLORS.muted, padding: 40 }}>従業員データが見つかりません</div>
-        )}
-      </div>
-    </div>
-  );
-}
+  const updateStatus = async (id, status) => { await api.upd

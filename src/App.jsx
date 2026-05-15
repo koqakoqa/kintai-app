@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
+//  Supabase 
 const SUPABASE_URL = "https://ialulmvdzzgfucspwluf.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbHVsbXZkenpnZnVjc3B3bHVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3ODc3MDEsImV4cCI6MjA5NDM2MzcwMX0.wWX0GXlU5OoVg8lxNXRR_0lM63Z2APjKAhLzDG0xAXM";
 
@@ -59,7 +59,7 @@ const api = {
   }),
 };
 
-// ── 佐野工業カラーパレット ────────────────────────────────────────────────────
+//  佐野工業カラーパレット 
 const C = {
   // ベース
   bg:        "#0a0e1a",
@@ -94,7 +94,7 @@ const C = {
 const nowStr = () => new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 const fmtDate = (s) => new Date(s).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" });
 const hhmm = (mins) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
-// ── GPS ───────────────────────────────────────────────────────────────────────
+//  GPS 
 const getLocation = () =>
   new Promise((resolve) => {
     if (!navigator.geolocation) { resolve(null); return; }
@@ -126,17 +126,17 @@ const GpsTag = ({ lat, lng, loading }) => {
   useEffect(() => {
     if (lat && lng) reverseGeocode(lat, lng).then(setPlace);
   }, [lat, lng]);
-  if (loading) return <span style={{ color: C.yellow, fontSize: 11 }}>⟳ GPS取得中…</span>;
-  if (!lat) return <span style={{ color: C.muted, fontSize: 11 }}>—</span>;
+  if (loading) return <span style={{ color: C.yellow, fontSize: 11 }}>... GPS取得中...</span>;
+  if (!lat) return <span style={{ color: C.muted, fontSize: 11 }}>-</span>;
   return (
     <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer"
       style={{ color: C.accent, fontSize: 11, textDecoration: "none" }}>
-      📍 {place || "取得中…"}
+      📍 {place || "取得中..."}
     </a>
   );
 };
 
-// ── 共通UI ────────────────────────────────────────────────────────────────────
+//  共通UI 
 const Badge = ({ label, color = C.accent }) => (
   <span style={{ background: color + "28", color, padding: "3px 12px", borderRadius: 4, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", border: `1px solid ${color}44` }}>{label}</span>
 );
@@ -161,11 +161,11 @@ const StatBox = ({ label, value, sub, accent = C.accent, icon }) => (
 const Spinner = () => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, flexDirection: "column", gap: 12 }}>
     <div style={{ width: 36, height: 36, border: `3px solid ${C.border}`, borderTop: `3px solid ${C.accent}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-    <span style={{ color: C.muted, fontSize: 12 }}>読み込み中…</span>
+    <span style={{ color: C.muted, fontSize: 12 }}>読み込み中...</span>
   </div>
 );
 
-// ── 打刻画面 ──────────────────────────────────────────────────────────────────
+//  打刻画面 
 function PunchView({ currentEmp }) {
   const [clock, setClock] = useState(new Date());
   const [today, setToday] = useState(null);
@@ -308,7 +308,7 @@ function PunchView({ currentEmp }) {
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <PunchBtn icon="🟢" label="出勤" sublabel="CHECK IN" color={C.green} bg={C.greenSoft} border={C.green} onClick={() => punch("checkIn")} disabled={!!today} />
             <PunchBtn icon="☕" label="休憩開始" sublabel="BREAK" color={C.yellow} bg={C.yellowSoft} border={C.yellow} onClick={() => punch("break")} disabled={!today || onBreak || !!today?.check_out} />
-            <PunchBtn icon="▶" label="休憩終了" sublabel="RESUME" color={C.accent} bg={C.accentSoft} border={C.accent} onClick={() => punch("resume")} disabled={!onBreak} />
+            <PunchBtn icon=">" label="休憩終了" sublabel="RESUME" color={C.accent} bg={C.accentSoft} border={C.accent} onClick={() => punch("resume")} disabled={!onBreak} />
             <PunchBtn icon="🔴" label="退勤" sublabel="CHECK OUT" color={C.red} bg={C.redSoft} border={C.red} onClick={() => punch("checkOut")} disabled={!today || !!today?.check_out} />
           </div>
         </>
@@ -317,7 +317,7 @@ function PunchView({ currentEmp }) {
   );
 }
 
-// ── 勤怠履歴 ─────────────────────────────────────────────────────────────────
+//  勤怠履歴 
 function HistoryView({ currentEmp, employees, isAdmin }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -334,7 +334,7 @@ function HistoryView({ currentEmp, employees, isAdmin }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <StatBox label="今月の総労働時間" value={hhmm(totalWork)} accent={C.accent} icon="⏱" />
+        <StatBox label="今月の総労働時間" value={hhmm(totalWork)} accent={C.accent} icon="" />
         <StatBox label="1日平均労働時間" value={hhmm(avgWork)} accent={C.green} icon="📊" />
         <StatBox label="出勤日数" value={`${rows.length}日`} accent={C.yellow} icon="📅" />
       </div>
@@ -383,7 +383,7 @@ function HistoryView({ currentEmp, employees, isAdmin }) {
   );
 }
 
-// ── 休暇申請 ─────────────────────────────────────────────────────────────────
+//  休暇申請 
 function LeaveView({ currentEmp, employees, isAdmin }) {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -411,4 +411,14 @@ function LeaveView({ currentEmp, employees, isAdmin }) {
     await loadLeaves();
   };
 
-  const updateStatus = async (id, status) => { await api
+  const updateStatus = async (id, status) => { await api.updateLeaveStatus(id, status); await loadLeaves(); };
+  const empMap = Object.fromEntries(employees.map((e) => [e.id, e]));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h3 style={{ color: C.text, margin: 0, fontSize: 16, fontWeight: 800, letterSpacing: "-0.3px" }}>
+          {isAdmin ? "休暇申請一覧" : "マイ休暇申請"}
+        </h3>
+        {!isAdmin && (
+          <butt

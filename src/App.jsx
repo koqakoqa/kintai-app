@@ -22,14 +22,15 @@ const sb = async (path, opts) => {
 
 const api = {
   getEmployees: function() { return sb("employees?select=*"); },
-  getAttendance: function(empId) { return sb("attendance?employee_id=eq." + empId + "&select=*&order=date.desc&limit=60"); },
-  getAllAttendance: function() { return sb("attendance?select=*&order=date.desc&limit=1000"); },
+  getAttendance: function(empId) { return sb("attendance?employee_id=eq." + empId + "&select=*,sites(id,name,client)&order=date.desc&limit=60"); },
+  getAllAttendance: function() { return sb("attendance?select=*,sites(id,name,client)&order=date.desc&limit=1000"); },
   getLeaves: function(empId) { return sb("leave_requests?employee_id=eq." + empId + "&select=*&order=created_at.desc"); },
   getAllLeaves: function() { return sb("leave_requests?select=*&order=created_at.desc"); },
-  checkIn: function(empId, time, loc) {
+  checkIn: function(empId, time, loc, siteId) {
     return sb("attendance", { method: "POST", body: JSON.stringify({
       employee_id: empId, date: new Date().toISOString().slice(0, 10),
       check_in: time, check_in_lat: loc ? loc.lat : null, check_in_lng: loc ? loc.lng : null, check_in_acc: loc ? loc.acc : null, status: "出勤中",
+      site_id: siteId || null,
     })});
   },
   checkOut: function(id, time, workMins, loc) {
@@ -46,6 +47,10 @@ const api = {
   createLeave: function(data) { return sb("leave_requests", { method: "POST", body: JSON.stringify(data) }); },
   updateLeaveStatus: function(id, status) { return sb("leave_requests?id=eq." + id, { method: "PATCH", body: JSON.stringify({ status: status }) }); },
   createEmployee: function(data) { return sb("employees", { method: "POST", body: JSON.stringify(data) }); },
+  getSites: function() { return sb("sites?select=*&order=name"); },
+  createSite: function(data) { return sb("sites", { method: "POST", body: JSON.stringify(data) }); },
+  updateSite: function(id, data) { return sb("sites?id=eq." + id, { method: "PATCH", body: JSON.stringify(data) }); },
+  deleteSite: function(id) { return sb("sites?id=eq." + id, { method: "DELETE", prefer: "return=minimal" }); },
   updateEmployee: function(id, data) { return sb("employees?id=eq." + id, { method: "PATCH", body: JSON.stringify(data) }); },
   deleteEmployee: function(id) { return sb("employees?id=eq." + id, { method: "DELETE", prefer: "return=minimal" }); },
 };
@@ -58,7 +63,7 @@ const MUTED = "#94a3b8"; const STEEL = "#475569"; const GRID = "#e8edf5";
 
 function nowStr() { return new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }); }
 function fmtDate(s) { return new Date(s).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }); }
-function hhmm(mins) { return Math.floor(mins / 60) + "h " + (mins % 60) + "m"; }
+function hhmm(mins) { return Math.floor(mins / 60) + "時間" + (mins % 60) + "分"; }
 function calcAutoBreak(checkIn, checkOut) {
   if (!checkIn || !checkOut) return 0;
   const ip = checkIn.slice(0,5).split(":"); const op = checkOut.slice(0,5).split(":");
@@ -229,8 +234,14 @@ function PunchView(props) {
   const [onBreak, setOnBreak] = useState(false);
   const [breakStart, setBreakStart] = useState(null);
   const [error, setError] = useState(null);
+  const [sites, setSites] = useState([]);
+  const [selectedSiteId, setSelectedSiteId] = useState("");
 
   useEffect(function() { const t = setInterval(function() { setClock(new Date()); }, 1000); return function() { clearInterval(t); }; }, []);
+
+  useEffect(function() {
+    api.getSites().then(function(data) { setSites(data); });
+  }, []);
 
   async function loadToday() {
     try {
@@ -248,7 +259,7 @@ function PunchView(props) {
     try {
       if (type === "checkIn") {
         setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
-        await api.checkIn(currentEmp.id, nowStr(), loc); await loadToday();
+        await api.checkIn(currentEmp.id, nowStr(), loc, selectedSiteId || null); await loadToday();
       } else if (type === "break") {
         setOnBreak(true); setBreakStart(new Date());
       } else if (type === "resume") {
@@ -326,6 +337,16 @@ function PunchView(props) {
       </div>
       {loading ? <Spinner /> : (
         <div>
+          {!today && sites.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8 }}>現場を選択</label>
+              <select value={selectedSiteId} onChange={function(e) { setSelectedSiteId(e.target.value); }}
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none" }}>
+                <option value="">現場を選択してください</option>
+                {sites.map(function(s) { return <option key={s.id} value={s.id}>{s.name}{s.client ? " (" + s.client + ")" : ""}</option>; })}
+              </select>
+            </div>
+          )}
           <Card style={{ marginBottom: 20 }}>
             <div style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 16 }}>本日の勤務記録</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -341,6 +362,12 @@ function PunchView(props) {
               })}
             </div>
             <div style={{ borderTop: "1px solid " + BORDER, paddingTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {today && today.sites && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 40 }}>現場</span>
+                  <span style={{ color: PRIMARY, fontSize: 12, fontWeight: 700 }}>{today.sites.name}{today.sites.client ? " (" + today.sites.client + ")" : ""}</span>
+                </div>
+              )}
               {today && today.check_in && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 40 }}>出勤</span>
@@ -375,8 +402,10 @@ function AttendanceEditModal(props) {
   const onClose = props.onClose;
   const onSaved = props.onSaved;
   const dateEditable = props.dateEditable || false;
+  const sites = props.sites || [];
 
   const [editDate, setEditDate] = useState(props.date);
+  const [siteId, setSiteId] = useState(rec && rec.site_id ? rec.site_id : "");
   const [checkIn, setCheckIn] = useState(rec ? (rec.check_in ? rec.check_in.slice(0,5) : "") : "");
   const [checkOut, setCheckOut] = useState(rec ? (rec.check_out ? rec.check_out.slice(0,5) : "") : "");
   const initBreak = rec ? calcAutoBreak(rec.check_in ? rec.check_in.slice(0,5) : "", rec.check_out ? rec.check_out.slice(0,5) : "") : 0;
@@ -393,7 +422,7 @@ function AttendanceEditModal(props) {
     try {
       const wm = calcWorkMins(checkIn, checkOut, breakMins);
       const status = checkOut ? "退勤済" : checkIn ? "出勤中" : "未出勤";
-      const data = { check_in: checkIn || null, check_out: checkOut || null, break_mins: breakMins, work_mins: wm, status: status };
+      const data = { check_in: checkIn || null, check_out: checkOut || null, break_mins: breakMins, work_mins: wm, status: status, site_id: siteId || null };
       await api.upsertAttendance(empId, editDate, data);
       onSaved();
     } catch (e) { setError(e.message); }
@@ -419,6 +448,14 @@ function AttendanceEditModal(props) {
               style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
           </div>
         )}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>現場</label>
+          <select value={siteId} onChange={function(e) { setSiteId(e.target.value); }}
+            style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }}>
+            <option value="">現場未選択</option>
+            {sites.map(function(s) { return <option key={s.id} value={s.id}>{s.name}{s.client ? " (" + s.client + ")" : ""}</option>; })}
+          </select>
+        </div>
         <div>
           <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>出勤時刻</label>
           <input type="time" value={checkIn} onChange={function(e) { handleCheckInChange(e.target.value); }}
@@ -470,6 +507,9 @@ function HistoryView(props) {
   const [filterEmpId, setFilterEmpId] = useState(currentEmp.id);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [editModal, setEditModal] = useState(null);
+  const [sites, setSites] = useState([]);
+
+  useEffect(function() { api.getSites().then(setSites); }, []);
 
   async function loadRows() {
     setLoading(true);
@@ -505,7 +545,7 @@ function HistoryView(props) {
   return (
     <div>
       {editModal && (
-        <AttendanceEditModal rec={editModal.rec} empId={editModal.empId} date={editModal.date} dateEditable={editModal.dateEditable || false}
+        <AttendanceEditModal rec={editModal.rec} empId={editModal.empId} date={editModal.date} dateEditable={editModal.dateEditable || false} sites={sites}
           onClose={function() { setEditModal(null); }}
           onSaved={function() { setEditModal(null); loadRows(); }} />
       )}
@@ -540,7 +580,10 @@ function HistoryView(props) {
               <div key={r.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + statusColor + "88, " + statusColor + ")" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ color: TEXT, fontWeight: 700, fontSize: 14 }}>{fmtDate(r.date)}</span>
+                  <div>
+                    <div style={{ color: TEXT, fontWeight: 700, fontSize: 14 }}>{fmtDate(r.date)}</div>
+                    {r.sites && <div style={{ color: PRIMARY, fontSize: 11, fontWeight: 600, marginTop: 2 }}>{r.sites.name}{r.sites.client ? " (" + r.sites.client + ")" : ""}</div>}
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Badge label={r.status} color={statusColor} />
                     <button onClick={function() { openEdit(r); }}
@@ -833,6 +876,153 @@ function EmployeeView(props) {
 }
 
 //  ダッシュボード 
+function SiteView() {
+  const [sites, setSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const emptyForm = { name: "", client: "", lat: "", lng: "" };
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [locating, setLocating] = useState(false);
+
+  async function reload() { setLoading(true); const data = await api.getSites(); setSites(data); setLoading(false); }
+  useEffect(function() { reload(); }, []);
+
+  function openNew() { setEditTarget(null); setForm(emptyForm); setShowForm(true); setError(null); }
+  function openEdit(s) {
+    setEditTarget(s);
+    setForm({ name: s.name, client: s.client || "", lat: s.lat || "", lng: s.lng || "" });
+    setShowForm(true); setError(null);
+  }
+  function setF(key, val) { setForm(function(prev) { const next = Object.assign({}, prev); next[key] = val; return next; }); }
+
+  async function getCurrentGps() {
+    setLocating(true);
+    const loc = await getLocation();
+    setLocating(false);
+    if (loc) { setF("lat", loc.lat); setF("lng", loc.lng); }
+    else { setError("GPS取得に失敗しました"); }
+  }
+
+  async function save() {
+    if (!form.name) { setError("現場名は必須です"); return; }
+    setSaving(true); setError(null);
+    try {
+      const data = {
+        name: form.name,
+        client: form.client || null,
+        lat: form.lat !== "" ? parseFloat(form.lat) : null,
+        lng: form.lng !== "" ? parseFloat(form.lng) : null,
+      };
+      if (editTarget) { await api.updateSite(editTarget.id, data); } else { await api.createSite(data); }
+      setShowForm(false); await reload();
+    } catch (e) { setError(e.message); }
+    setSaving(false);
+  }
+
+  async function deleteSite(s) {
+    if (!window.confirm(s.name + " を削除しますか？")) return;
+    await api.deleteSite(s.id); await reload();
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h3 style={{ color: TEXT, margin: 0, fontSize: 16, fontWeight: 800 }}>現場管理</h3>
+        <button onClick={openNew}
+          style={{ background: "linear-gradient(135deg, " + PRIMARY + ", " + PRIMARYLT + ")", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          + 現場を追加
+        </button>
+      </div>
+
+      {showForm && (
+        <Card style={{ marginBottom: 20 }}>
+          <div style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 16 }}>{editTarget ? "現場を編集" : "現場を追加"}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>現場名 *</label>
+              <input value={form.name} onChange={function(e) { setF("name", e.target.value); }} placeholder="〇〇工事現場"
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>元請け名</label>
+              <input value={form.client} onChange={function(e) { setF("client", e.target.value); }} placeholder="〇〇建設"
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>緯度</label>
+              <input type="number" step="0.000001" value={form.lat} onChange={function(e) { setF("lat", e.target.value); }} placeholder="43.06417"
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>経度</label>
+              <input type="number" step="0.000001" value={form.lng} onChange={function(e) { setF("lng", e.target.value); }} placeholder="141.34694"
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+            </div>
+          </div>
+          <button onClick={getCurrentGps} disabled={locating}
+            style={{ background: "#f8fafc", color: PRIMARY, border: "1px solid " + PRIMARY + "44", borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 13, cursor: locating ? "not-allowed" : "pointer", marginBottom: 14, opacity: locating ? 0.6 : 1 }}>
+            {locating ? "GPS取得中..." : "現在地から座標を取得"}
+          </button>
+          {form.lat && form.lng && (
+            <div style={{ marginBottom: 14 }}>
+              <a href={"https://www.google.com/maps?q=" + form.lat + "," + form.lng} target="_blank" rel="noreferrer"
+                style={{ color: ACCENT, fontSize: 12, textDecoration: "none" }}>
+                [地図で確認]
+              </a>
+            </div>
+          )}
+          {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 14px", color: RED, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={save} disabled={saving}
+              style={{ background: "linear-gradient(135deg, " + PRIMARY + ", " + PRIMARYLT + ")", color: "#fff", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
+              {saving ? "保存中..." : "保存"}
+            </button>
+            <button onClick={function() { setShowForm(false); }}
+              style={{ background: "#f0f4f8", color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              キャンセル
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {loading ? <Spinner /> : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {sites.map(function(s) {
+            return (
+              <div key={s.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ color: TEXT, fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{s.name}</div>
+                    {s.client && <div style={{ color: TEXTSUB, fontSize: 12, marginBottom: 6 }}>元請け: {s.client}</div>}
+                    {s.lat && s.lng && (
+                      <a href={"https://www.google.com/maps?q=" + s.lat + "," + s.lng} target="_blank" rel="noreferrer"
+                        style={{ color: ACCENT, fontSize: 12, textDecoration: "none" }}>
+                        [地図で確認] {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)}
+                      </a>
+                    )}
+                    {!s.lat && <span style={{ color: MUTED, fontSize: 12 }}>座標未設定</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 12 }}>
+                    <button onClick={function() { openEdit(s); }}
+                      style={{ background: "#e8f1fd", color: PRIMARY, border: "1px solid " + PRIMARY + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>編集</button>
+                    <button onClick={function() { deleteSite(s); }}
+                      style={{ background: REDSOFT, color: RED, border: "1px solid " + RED + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>削除</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {sites.length === 0 && <div style={{ textAlign: "center", color: MUTED, padding: 40 }}>現場が登録されていません</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardView(props) {
   const employees = props.employees;
   const [attendance, setAttendance] = useState([]);
@@ -1011,7 +1201,7 @@ export default function App() {
   const isAdmin = loggedInEmp && loggedInEmp.is_admin;
 
   const tabs = isAdmin
-    ? [{ id: "punch", text: "打刻" }, { id: "dashboard", text: "ダッシュボード" }, { id: "history", text: "勤怠一覧" }, { id: "leave", text: "休暇申請" }, { id: "employees", text: "従業員管理" }, { id: "password", text: "PW変更" }]
+    ? [{ id: "punch", text: "打刻" }, { id: "dashboard", text: "ダッシュボード" }, { id: "history", text: "勤怠一覧" }, { id: "leave", text: "休暇申請" }, { id: "employees", text: "従業員管理" }, { id: "sites", text: "現場管理" }, { id: "password", text: "PW変更" }]
     : [{ id: "punch", text: "打刻" }, { id: "history", text: "勤怠履歴" }, { id: "leave", text: "休暇申請" }, { id: "password", text: "PW変更" }];
 
   if (loadingEmps) {
@@ -1089,6 +1279,7 @@ export default function App() {
         {tab === "leave"     && <LeaveView currentEmp={loggedInEmp} employees={employees} isAdmin={isAdmin} />}
         {tab === "dashboard" && <DashboardView employees={employees} />}
         {tab === "employees" && <EmployeeView employees={employees} onUpdate={function(emps) { setEmployees(emps); }} />}
+        {tab === "sites"     && <SiteView />}
         {tab === "password"  && <PasswordView currentEmp={loggedInEmp} onPasswordChanged={handlePasswordChanged} />}
       </div>
     </div>

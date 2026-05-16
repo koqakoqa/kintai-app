@@ -50,7 +50,7 @@ const api = {
   deleteEmployee: function(id) { return sb("employees?id=eq." + id, { method: "DELETE", prefer: "return=minimal" }); },
 };
 
-const BG = "#f0f4f8"; const PANEL = "#ffffff"; const CARD = "#ffffff"; const BORDER = "#dde3ed";
+const BG = "#f5f7fa"; const PANEL = "#ffffff"; const CARD = "#ffffff"; const BORDER = "#dde3ed";
 const PRIMARY = "#1560bd"; const PRIMARYLT = "#1e7ae0"; const ACCENT = "#1e7ae0"; const ACCENTSOFT = "#e8f1fd";
 const GREEN = "#059669"; const GREENSOFT = "#d1fae5"; const RED = "#dc2626"; const REDSOFT = "#fee2e2";
 const YELLOW = "#d97706"; const YELLOWSOFT = "#fef3c7"; const TEXT = "#1e293b"; const TEXTSUB = "#475569";
@@ -269,21 +269,60 @@ function PunchView(props) {
 
   function PBtn(p) {
     const dis = p.disabled || gpsLoading;
+    const [anim, setAnim] = useState(false);
+
+    function handleClick() {
+      if (dis) return;
+      setAnim(true);
+      setTimeout(function() { setAnim(false); }, 500);
+      p.onClick();
+    }
+
     return (
-      <button onClick={p.onClick} disabled={dis}
-        style={{ background: dis ? BORDER : p.bg, color: dis ? MUTED : p.color, border: "2px solid " + (dis ? BORDER : p.color), borderRadius: 10, padding: "16px 24px", fontWeight: 800, fontSize: 15, cursor: dis ? "not-allowed" : "pointer", opacity: dis ? 0.4 : 1, minWidth: 100 }}>
-        {p.label}
-      </button>
+      <div style={{ position: "relative", display: "inline-block" }}>
+        <button onClick={handleClick} disabled={dis} className="punch-btn"
+          style={{
+            background: dis ? "#e2e8f0" : p.bg,
+            color: dis ? MUTED : p.color,
+            border: "2px solid " + (dis ? "#e2e8f0" : p.color),
+            borderRadius: 14,
+            padding: "20px 36px",
+            fontWeight: 900,
+            fontSize: 18,
+            cursor: dis ? "not-allowed" : "pointer",
+            opacity: dis ? 0.5 : 1,
+            minWidth: 130,
+            boxShadow: dis ? "none" : "0 4px 16px " + p.color + "44",
+            animation: anim ? "pulse 0.5s ease" : "none",
+            position: "relative",
+            overflow: "hidden",
+            letterSpacing: "0.02em",
+          }}>
+          {p.label}
+        </button>
+        {anim && !dis && (
+          <div style={{
+            position: "absolute",
+            top: "50%", left: "50%",
+            width: 60, height: 60,
+            marginTop: -30, marginLeft: -30,
+            background: p.color,
+            borderRadius: "50%",
+            animation: "ripple 0.5s ease-out forwards",
+            pointerEvents: "none",
+          }} />
+        )}
+      </div>
     );
   }
 
   return (
     <div>
       <div style={{ background: "linear-gradient(135deg, #1560bd, #1e7ae0)", border: "1px solid " + BORDER, borderRadius: 12, padding: "32px 24px", textAlign: "center", marginBottom: 24 }}>
-        <div style={{ color: TEXTSUB, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{fmtDate(clock)}</div>
-        <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-3px", color: TEXT, fontFamily: "monospace", lineHeight: 1, marginBottom: 8 }}>{clock.toLocaleTimeString("ja-JP")}</div>
-        <div style={{ color: TEXTSUB, fontSize: 14 }}>{currentEmp.name}</div>
-        {today && <div style={{ marginTop: 12 }}><Badge label={today.status} color={statusColor} /></div>}
+        <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{fmtDate(clock)}</div>
+        <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-3px", color: "#ffffff", fontFamily: "monospace", lineHeight: 1, marginBottom: 8 }}>{clock.toLocaleTimeString("ja-JP")}</div>
+        <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{currentEmp.name}</div>
+        {today && <div style={{ marginTop: 12 }}><span style={{ background: "rgba(255,255,255,0.25)", color: "#ffffff", padding: "4px 16px", borderRadius: 99, fontSize: 13, fontWeight: 700, border: "1px solid rgba(255,255,255,0.4)" }}>{today.status}</span></div>}
       </div>
       {loading ? <Spinner /> : (
         <div>
@@ -318,7 +357,7 @@ function PunchView(props) {
             </div>
           </Card>
           {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 16px", color: RED, marginBottom: 16, fontSize: 13 }}>{error}</div>}
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
             <PBtn label="出勤" color={GREEN} bg={GREENSOFT} onClick={function() { punch("checkIn"); }} disabled={!!today} />
             <PBtn label="退勤" color={RED} bg={REDSOFT} onClick={function() { punch("checkOut"); }} disabled={!today || !!(today && today.check_out)} />
           </div>
@@ -996,7 +1035,7 @@ export default function App() {
   if (!loggedInEmp) {
     return (
       <div>
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8;overflow-x:hidden}"}</style>
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes pulse{0%{transform:scale(1)}30%{transform:scale(0.92)}60%{transform:scale(1.06)}100%{transform:scale(1)}} @keyframes ripple{0%{transform:scale(0);opacity:0.6}100%{transform:scale(4);opacity:0}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f5f7fa;overflow-x:hidden} .punch-btn{transition:box-shadow 0.15s,opacity 0.15s} .punch-btn:active{filter:brightness(0.92)}"}</style>
         <LoginView employees={employees} onLogin={handleLogin} />
       </div>
     );
@@ -1004,7 +1043,7 @@ export default function App() {
 
   return (
     <div style={{ background: BG, minHeight: "100vh", color: TEXT, fontFamily: "'Inter','Noto Sans JP',sans-serif" }}>
-      <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8;overflow-x:hidden}"}</style>
+      <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes pulse{0%{transform:scale(1)}30%{transform:scale(0.92)}60%{transform:scale(1.06)}100%{transform:scale(1)}} @keyframes ripple{0%{transform:scale(0);opacity:0.6}100%{transform:scale(4);opacity:0}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f5f7fa;overflow-x:hidden} .punch-btn{transition:box-shadow 0.15s,opacity 0.15s} .punch-btn:active{filter:brightness(0.92)}"}</style>
       <div style={{ background: PANEL, borderBottom: "1px solid " + BORDER, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <div style={{ width: 28, height: 28, background: "linear-gradient(135deg, " + PRIMARY + ", " + ACCENT + ")", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>🏗</div>

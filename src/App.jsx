@@ -100,6 +100,27 @@ function getLocation() {
   });
 }
 
+function calcDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function findNearestSite(lat, lng, sites, thresholdMeters) {
+  var nearest = null;
+  var minDist = thresholdMeters || 500;
+  sites.forEach(function(s) {
+    if (!s.lat || !s.lng) return;
+    var d = calcDistance(lat, lng, s.lat, s.lng);
+    if (d < minDist) { minDist = d; nearest = s; }
+  });
+  return nearest;
+}
+
 async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch("https://nominatim.openstreetmap.org/reverse?lat=" + lat + "&lon=" + lng + "&format=json&accept-language=ja", { headers: { "User-Agent": "SanoKogyo-Kintai/1.0" } });
@@ -236,6 +257,7 @@ function PunchView(props) {
   const [error, setError] = useState(null);
   const [sites, setSites] = useState([]);
   const [selectedSiteId, setSelectedSiteId] = useState("");
+  const [autoSiteMsg, setAutoSiteMsg] = useState("");
 
   useEffect(function() { const t = setInterval(function() { setClock(new Date()); }, 1000); return function() { clearInterval(t); }; }, []);
 
@@ -259,7 +281,12 @@ function PunchView(props) {
     try {
       if (type === "checkIn") {
         setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
-        await api.checkIn(currentEmp.id, nowStr(), loc, selectedSiteId || null); await loadToday();
+        var autoSiteId = selectedSiteId || null;
+        if (!autoSiteId && loc && sites.length > 0) {
+          var nearest = findNearestSite(loc.lat, loc.lng, sites, 500);
+          if (nearest) { autoSiteId = nearest.id; setSelectedSiteId(nearest.id); setAutoSiteMsg(nearest.name + " を自動設定しました"); }
+        }
+        await api.checkIn(currentEmp.id, nowStr(), loc, autoSiteId); await loadToday();
       } else if (type === "break") {
         setOnBreak(true); setBreakStart(new Date());
       } else if (type === "resume") {
@@ -339,12 +366,13 @@ function PunchView(props) {
         <div>
           {!today && sites.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8 }}>現場を選択</label>
-              <select value={selectedSiteId} onChange={function(e) { setSelectedSiteId(e.target.value); }}
+              <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8 }}>現場を選択 <span style={{ color: MUTED, fontWeight: 400, fontSize: 11 }}>(出勤時に近くの現場を自動設定)</span></label>
+              <select value={selectedSiteId} onChange={function(e) { setSelectedSiteId(e.target.value); setAutoSiteMsg(""); }}
                 style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none" }}>
                 <option value="">現場を選択してください</option>
                 {sites.map(function(s) { return <option key={s.id} value={s.id}>{s.name}{s.client ? " (" + s.client + ")" : ""}</option>; })}
               </select>
+              {autoSiteMsg && <div style={{ marginTop: 8, color: GREEN, fontSize: 12, fontWeight: 600 }}>{autoSiteMsg}</div>}
             </div>
           )}
           <Card style={{ marginBottom: 20 }}>
@@ -708,42 +736,42 @@ function LeaveView(props) {
         </Card>
       )}
       {loading ? <Spinner /> : (
-        <div style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 8, overflow: "hidden", position: "relative" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: PANEL }}>
-                {isAdmin && <th style={{ padding: "13px 16px", textAlign: "left", color: TEXTSUB, fontWeight: 700, fontSize: 11, textTransform: "uppercase", borderBottom: "1px solid " + BORDER }}>氏名</th>}
-                {["種別","期間","日数","状態"].map(function(h) { return <th key={h} style={{ padding: "13px 16px", textAlign: "left", color: TEXTSUB, fontWeight: 700, fontSize: 11, textTransform: "uppercase", borderBottom: "1px solid " + BORDER }}>{h}</th>; })}
-                {isAdmin && <th style={{ padding: "13px 16px", textAlign: "left", color: TEXTSUB, fontWeight: 700, fontSize: 11, textTransform: "uppercase", borderBottom: "1px solid " + BORDER }}>操作</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {leaves.map(function(l, i) {
-                const emp = empMap[l.employee_id];
-                return (
-                  <tr key={l.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "cc" }}>
-                    {isAdmin && <td style={{ padding: "12px 16px", color: TEXT, fontWeight: 600 }}>{emp ? emp.name : "-"}</td>}
-                    <td style={{ padding: "12px 16px", color: TEXTSUB }}>{l.type}</td>
-                    <td style={{ padding: "12px 16px", color: TEXT, fontFamily: "monospace", fontSize: 12 }}>{l.from_date} - {l.to_date}</td>
-                    <td style={{ padding: "12px 16px", color: ACCENT, fontWeight: 800 }}>{l.days}日</td>
-                    <td style={{ padding: "12px 16px" }}><Badge label={l.status} color={l.status === "承認済" ? GREEN : l.status === "却下" ? RED : YELLOW} /></td>
-                    {isAdmin && (
-                      <td style={{ padding: "12px 16px" }}>
-                        {l.status === "申請中" && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={function() { updateStatus(l.id, "承認済"); }} style={{ background: GREENSOFT, color: GREEN, border: "1px solid " + GREEN + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>承認</button>
-                            <button onClick={function() { updateStatus(l.id, "却下"); }} style={{ background: REDSOFT, color: RED, border: "1px solid " + RED + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>却下</button>
-                          </div>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-              {leaves.length === 0 && <tr><td colSpan={10} style={{ padding: 32, textAlign: "center", color: MUTED }}>申請がありません</td></tr>}
-            </tbody>
-          </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {leaves.map(function(l) {
+            const emp = empMap[l.employee_id];
+            const statusColor = l.status === "承認済" ? GREEN : l.status === "却下" ? RED : YELLOW;
+            return (
+              <div key={l.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + statusColor + "88, " + statusColor + ")" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div>
+                    {isAdmin && <div style={{ color: TEXT, fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{emp ? emp.name : "-"}</div>}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ color: TEXTSUB, fontSize: 13, fontWeight: 600 }}>{l.type}</span>
+                      <Badge label={l.status} color={statusColor} />
+                    </div>
+                  </div>
+                  {isAdmin && l.status === "申請中" && (
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+                      <button onClick={function() { updateStatus(l.id, "承認済"); }} style={{ background: GREENSOFT, color: GREEN, border: "1px solid " + GREEN + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>承認</button>
+                      <button onClick={function() { updateStatus(l.id, "却下"); }} style={{ background: REDSOFT, color: RED, border: "1px solid " + RED + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>却下</button>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                  <div>
+                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>期間</div>
+                    <div style={{ color: TEXT, fontSize: 13, fontFamily: "monospace" }}>{l.from_date} - {l.to_date}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>日数</div>
+                    <div style={{ color: ACCENT, fontSize: 16, fontWeight: 800, fontFamily: "monospace" }}>{l.days}日</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {leaves.length === 0 && <div style={{ textAlign: "center", color: MUTED, padding: 40 }}>申請がありません</div>}
         </div>
       )}
     </div>

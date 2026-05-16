@@ -50,11 +50,11 @@ const api = {
   deleteEmployee: function(id) { return sb("employees?id=eq." + id, { method: "DELETE", prefer: "return=minimal" }); },
 };
 
-const BG = "#0a0e1a"; const PANEL = "#0d1424"; const CARD = "#111c30"; const BORDER = "#1e2d4a";
-const PRIMARY = "#1560bd"; const PRIMARYLT = "#1e7ae0"; const ACCENT = "#3b9eff"; const ACCENTSOFT = "#0a2040";
-const GREEN = "#00c896"; const GREENSOFT = "#002a1f"; const RED = "#ff5252"; const REDSOFT = "#2a0a0a";
-const YELLOW = "#ffb300"; const YELLOWSOFT = "#2a1a00"; const TEXT = "#e8edf5"; const TEXTSUB = "#8fa8c8";
-const MUTED = "#4a6080"; const STEEL = "#4a7fa5"; const GRID = "#1a2840";
+const BG = "#f0f4f8"; const PANEL = "#ffffff"; const CARD = "#ffffff"; const BORDER = "#dde3ed";
+const PRIMARY = "#1560bd"; const PRIMARYLT = "#1e7ae0"; const ACCENT = "#1e7ae0"; const ACCENTSOFT = "#e8f1fd";
+const GREEN = "#059669"; const GREENSOFT = "#d1fae5"; const RED = "#dc2626"; const REDSOFT = "#fee2e2";
+const YELLOW = "#d97706"; const YELLOWSOFT = "#fef3c7"; const TEXT = "#1e293b"; const TEXTSUB = "#475569";
+const MUTED = "#94a3b8"; const STEEL = "#475569"; const GRID = "#e8edf5";
 
 function nowStr() { return new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }); }
 function fmtDate(s) { return new Date(s).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }); }
@@ -152,14 +152,14 @@ function Spinner() {
 function FInput(props) {
   return (
     <input type={props.type || "text"} value={props.value} onChange={props.onChange} placeholder={props.placeholder || ""}
-      style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
+      style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
   );
 }
 
 function Modal(props) {
   if (!props.open) return null;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(30,41,59,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 12, padding: 28, width: "100%", maxWidth: 500, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "12px 12px 0 0", background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
         <div style={{ fontWeight: 800, fontSize: 16, color: TEXT, marginBottom: 20 }}>{props.title}</div>
@@ -190,7 +190,7 @@ function LoginView(props) {
     <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ width: 64, height: 64, background: "linear-gradient(135deg, " + PRIMARY + ", " + ACCENT + ")", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, margin: "0 auto 16px", boxShadow: "0 8px 32px " + PRIMARY + "66" }}>🏗</div>
+          <div style={{ width: 64, height: 64, background: "linear-gradient(135deg, " + PRIMARY + ", " + ACCENT + ")", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, margin: "0 auto 16px", boxShadow: "0 8px 24px " + PRIMARY + "44" }}>🏗</div>
           <div style={{ fontWeight: 900, fontSize: 22, color: TEXT, marginBottom: 4 }}>佐野工業株式会社</div>
           <div style={{ color: MUTED, fontSize: 13 }}>勤怠管理システム</div>
         </div>
@@ -198,14 +198,14 @@ function LoginView(props) {
           <div style={{ marginBottom: 20 }}>
             <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>社員を選択</label>
             <select value={selectedId} onChange={function(e) { setSelectedId(e.target.value); }}
-              style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }}>
+              style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }}>
               {employees.map(function(e) { return <option key={e.id} value={e.id}>{e.name}</option>; })}
             </select>
           </div>
           <div style={{ marginBottom: 24 }}>
             <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>パスワード</label>
             <input type="password" value={password} onChange={function(e) { setPassword(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") handleLogin(); }} placeholder="パスワードを入力"
-              style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
+              style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
           </div>
           {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 14px", color: RED, fontSize: 13, marginBottom: 16 }}>{error}</div>}
           <button onClick={handleLogin} disabled={loading}
@@ -279,7 +279,7 @@ function PunchView(props) {
 
   return (
     <div>
-      <div style={{ background: "linear-gradient(135deg, #0d2a5c, #0a2040)", border: "1px solid " + BORDER, borderRadius: 12, padding: "32px 24px", textAlign: "center", marginBottom: 24 }}>
+      <div style={{ background: "linear-gradient(135deg, #1560bd, #1e7ae0)", border: "1px solid " + BORDER, borderRadius: 12, padding: "32px 24px", textAlign: "center", marginBottom: 24 }}>
         <div style={{ color: TEXTSUB, fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{fmtDate(clock)}</div>
         <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-3px", color: TEXT, fontFamily: "monospace", lineHeight: 1, marginBottom: 8 }}>{clock.toLocaleTimeString("ja-JP")}</div>
         <div style={{ color: TEXTSUB, fontSize: 14 }}>{currentEmp.name}</div>
@@ -377,23 +377,23 @@ function AttendanceEditModal(props) {
           <div style={{ gridColumn: "1 / -1" }}>
             <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>日付</label>
             <input type="date" value={editDate} onChange={function(e) { setEditDate(e.target.value); }}
-              style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
+              style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
           </div>
         )}
         <div>
           <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>出勤時刻</label>
           <input type="time" value={checkIn} onChange={function(e) { handleCheckInChange(e.target.value); }}
-            style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
+            style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
         </div>
         <div>
           <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>退勤時刻</label>
           <input type="time" value={checkOut} onChange={function(e) { handleCheckOutChange(e.target.value); }}
-            style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
+            style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
         </div>
         <div>
           <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>休憩時間(分) <span style={{ color: MUTED, fontWeight: 400, fontSize: 10 }}>出退勤から自動計算</span></label>
           <input type="number" value={breakMins} onChange={function(e) { setBreakMins(parseInt(e.target.value)||0); }}
-            style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
+            style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 14, outline: "none" }} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 4 }}>
           <div style={{ color: MUTED, fontSize: 11, marginBottom: 4 }}>計算後の労働時間</div>
@@ -413,7 +413,7 @@ function AttendanceEditModal(props) {
           </button>
         )}
         <button onClick={onClose}
-          style={{ background: PANEL, color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+          style={{ background: "#f0f4f8", color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
           キャンセル
         </button>
       </div>
@@ -477,10 +477,10 @@ function HistoryView(props) {
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <input type="month" value={month} onChange={function(e) { setMonth(e.target.value); }}
-          style={{ background: CARD, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", fontSize: 14, outline: "none" }} />
+          style={{ background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", fontSize: 14, outline: "none" }} />
         {isAdmin && (
           <select value={filterEmpId} onChange={function(e) { setFilterEmpId(e.target.value); }}
-            style={{ background: CARD, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", fontSize: 14, outline: "none" }}>
+            style={{ background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", fontSize: 14, outline: "none" }}>
             {employees.map(function(e) { return <option key={e.id} value={e.id}>{e.name}</option>; })}
           </select>
         )}
@@ -494,36 +494,58 @@ function HistoryView(props) {
         </button>
       </div>
       {loading ? <Spinner /> : (
-        <div style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 8, overflow: "auto", position: "relative" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: PANEL }}>
-                {["日付","出勤","退勤","休憩","労働時間","状態","編集"].map(function(h) {
-                  return <th key={h} style={{ padding: "13px 16px", textAlign: "left", color: TEXTSUB, fontWeight: 700, fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap", borderBottom: "1px solid " + BORDER }}>{h}</th>;
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(function(r, i) {
-                return (
-                  <tr key={r.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "60" }}>
-                    <td style={{ padding: "12px 16px", color: TEXTSUB, whiteSpace: "nowrap", fontWeight: 600 }}>{fmtDate(r.date)}</td>
-                    <td style={{ padding: "12px 16px", color: GREEN, fontFamily: "monospace", fontWeight: 700 }}>{r.check_in ? r.check_in.slice(0,5) : "--"}</td>
-                    <td style={{ padding: "12px 16px", color: ACCENT, fontFamily: "monospace", fontWeight: 700 }}>{r.check_out ? r.check_out.slice(0,5) : "--:--"}</td>
-                    <td style={{ padding: "12px 16px", color: MUTED }}>{(r.break_mins||0)+"分"}</td>
-                    <td style={{ padding: "12px 16px", color: YELLOW, fontWeight: 800, fontFamily: "monospace" }}>{r.work_mins ? hhmm(r.work_mins) : "--"}</td>
-                    <td style={{ padding: "12px 16px" }}><Badge label={r.status} color={r.status === "出勤中" ? GREEN : r.status === "退勤済" ? STEEL : YELLOW} /></td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <button onClick={function() { openEdit(r); }}
-                        style={{ background: ACCENTSOFT, color: ACCENT, border: "1px solid " + ACCENT + "44", borderRadius: 6, padding: "4px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>編集</button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: 32, textAlign: "center", color: MUTED }}>データがありません</td></tr>}
-            </tbody>
-          </table>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.map(function(r) {
+            const statusColor = r.status === "出勤中" ? GREEN : r.status === "退勤済" ? STEEL : YELLOW;
+            return (
+              <div key={r.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + statusColor + "88, " + statusColor + ")" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ color: TEXT, fontWeight: 700, fontSize: 14 }}>{fmtDate(r.date)}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Badge label={r.status} color={statusColor} />
+                    <button onClick={function() { openEdit(r); }}
+                      style={{ background: ACCENTSOFT, color: ACCENT, border: "1px solid " + ACCENT + "44", borderRadius: 6, padding: "4px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+                      編集
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 12px" }}>
+                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>出勤</div>
+                    <div style={{ color: GREEN, fontWeight: 800, fontSize: 16, fontFamily: "monospace" }}>{r.check_in ? r.check_in.slice(0,5) : "--:--"}</div>
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 12px" }}>
+                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>退勤</div>
+                    <div style={{ color: ACCENT, fontWeight: 800, fontSize: 16, fontFamily: "monospace" }}>{r.check_out ? r.check_out.slice(0,5) : "--:--"}</div>
+                  </div>
+                  <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 12px" }}>
+                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>労働時間</div>
+                    <div style={{ color: YELLOW, fontWeight: 800, fontSize: 16, fontFamily: "monospace" }}>{r.work_mins ? hhmm(r.work_mins) : "--"}</div>
+                  </div>
+                </div>
+                {(r.check_in_lat || r.check_out_lat) && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {r.check_in_lat && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 36 }}>出勤</span>
+                        <GpsTag lat={r.check_in_lat} lng={r.check_in_lng} loading={false} />
+                      </div>
+                    )}
+                    {r.check_out_lat && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 36 }}>退勤</span>
+                        <GpsTag lat={r.check_out_lat} lng={r.check_out_lng} loading={false} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div style={{ textAlign: "center", color: MUTED, padding: 40 }}>データがありません</div>
+          )}
         </div>
       )}
     </div>
@@ -582,19 +604,19 @@ function LeaveView(props) {
             <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>種別</label>
               <select value={leaveType} onChange={function(e) { setLeaveType(e.target.value); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }}>
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }}>
                 <option>有給休暇</option><option>特別休暇</option><option>慶弔休暇</option><option>病気休暇</option>
               </select>
             </div>
             <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>開始日</label>
               <input type="date" value={leaveFrom} onChange={function(e) { setLeaveFrom(e.target.value); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
             <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>終了日</label>
               <input type="date" value={leaveTo} onChange={function(e) { setLeaveTo(e.target.value); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
           </div>
           <button onClick={submit} disabled={submitting}
@@ -618,7 +640,7 @@ function LeaveView(props) {
               {leaves.map(function(l, i) {
                 const emp = empMap[l.employee_id];
                 return (
-                  <tr key={l.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "60" }}>
+                  <tr key={l.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "cc" }}>
                     {isAdmin && <td style={{ padding: "12px 16px", color: TEXT, fontWeight: 600 }}>{emp ? emp.name : "-"}</td>}
                     <td style={{ padding: "12px 16px", color: TEXTSUB }}>{l.type}</td>
                     <td style={{ padding: "12px 16px", color: TEXT, fontFamily: "monospace", fontSize: 12 }}>{l.from_date} - {l.to_date}</td>
@@ -704,19 +726,19 @@ function EmployeeView(props) {
                 <div key={item.key}>
                   <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>{item.label}</label>
                   <input value={form[item.key]} onChange={function(e) { setF(item.key, e.target.value); }} placeholder={item.placeholder}
-                    style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                    style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
                 </div>
               );
             })}
             <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>有給付与日数</label>
               <input type="number" value={form.paid_days} onChange={function(e) { setF("paid_days", parseInt(e.target.value)||0); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
             <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>有給取得済日数</label>
               <input type="number" value={form.used_paid_days} onChange={function(e) { setF("used_paid_days", parseInt(e.target.value)||0); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
           </div>
           <div style={{ marginBottom: 16 }}>
@@ -732,7 +754,7 @@ function EmployeeView(props) {
               {saving ? "保存中..." : "保存"}
             </button>
             <button onClick={function() { setShowForm(false); }}
-              style={{ background: PANEL, color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              style={{ background: "#f0f4f8", color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
               キャンセル
             </button>
           </div>
@@ -751,7 +773,7 @@ function EmployeeView(props) {
           <tbody>
             {employees.map(function(e, i) {
               return (
-                <tr key={e.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "60" }}>
+                <tr key={e.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "cc" }}>
                   <td style={{ padding: "13px 16px", color: TEXT, fontWeight: 700 }}>{e.name}</td>
                   <td style={{ padding: "13px 16px", color: GREEN, fontWeight: 800, fontFamily: "monospace" }}>{((e.paid_days||0)-(e.used_paid_days||0))+"日"}</td>
                   <td style={{ padding: "13px 16px" }}><Badge label={e.is_admin ? "管理者" : "一般"} color={e.is_admin ? ACCENT : MUTED} /></td>
@@ -893,7 +915,7 @@ function PasswordView(props) {
             <div key={item.label} style={{ marginBottom: 16 }}>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6, textTransform: "uppercase" }}>{item.label}</label>
               <input type="password" value={item.val} onChange={function(e) { item.set(e.target.value); }}
-                style={{ width: "100%", background: PANEL, color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
+                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }} />
             </div>
           );
         })}
@@ -956,7 +978,7 @@ export default function App() {
   if (loadingEmps) {
     return (
       <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#0a0e1a}"}</style>
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8}"}</style>
         <Spinner />
       </div>
     );
@@ -965,7 +987,7 @@ export default function App() {
   if (dbError) {
     return (
       <div style={{ minHeight: "100vh", background: BG, display: "flex", alignItems: "center", justifyContent: "center", color: RED, fontSize: 14, padding: 24 }}>
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#0a0e1a}"}</style>
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8}"}</style>
         Supabase接続エラー: {dbError}
       </div>
     );
@@ -974,7 +996,7 @@ export default function App() {
   if (!loggedInEmp) {
     return (
       <div>
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#0a0e1a;overflow-x:hidden}"}</style>
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8;overflow-x:hidden}"}</style>
         <LoginView employees={employees} onLogin={handleLogin} />
       </div>
     );
@@ -982,8 +1004,8 @@ export default function App() {
 
   return (
     <div style={{ background: BG, minHeight: "100vh", color: TEXT, fontFamily: "'Inter','Noto Sans JP',sans-serif" }}>
-      <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#0a0e1a;overflow-x:hidden}"}</style>
-      <div style={{ background: PANEL, borderBottom: "1px solid " + BORDER, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 20px rgba(0,0,0,0.4)", gap: 8 }}>
+      <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0} body{background:#f0f4f8;overflow-x:hidden}"}</style>
+      <div style={{ background: PANEL, borderBottom: "1px solid " + BORDER, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <div style={{ width: 28, height: 28, background: "linear-gradient(135deg, " + PRIMARY + ", " + ACCENT + ")", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>🏗</div>
           <span style={{ fontWeight: 800, fontSize: 14, color: TEXT, whiteSpace: "nowrap" }}>佐野工業</span>
@@ -992,7 +1014,7 @@ export default function App() {
           <span style={{ color: TEXTSUB, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loggedInEmp.name}</span>
           {isAdmin && <span style={{ background: ACCENT + "28", color: ACCENT, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, border: "1px solid " + ACCENT + "44", flexShrink: 0 }}>管理者</span>}
           <button onClick={handleLogout}
-            style={{ background: PANEL, color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
+            style={{ background: "#f0f4f8", color: TEXTSUB, border: "1px solid " + BORDER, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
             ログアウト
           </button>
         </div>
@@ -1012,7 +1034,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <div style={{ background: PANEL, borderBottom: "1px solid " + BORDER, padding: "0 28px", display: "flex", overflowX: "auto" }}>
+      <div style={{ background: PANEL, borderBottom: "1px solid " + BORDER, padding: "0 16px", display: "flex", overflowX: "auto", borderBottom: "2px solid " + BORDER }}>
         {tabs.map(function(t) {
           return (
             <button key={t.id} onClick={function() { setTab(t.id); }}

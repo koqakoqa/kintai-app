@@ -886,15 +886,18 @@ function SiteView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [addrQuery, setAddrQuery] = useState("");
+  const [addrResults, setAddrResults] = useState([]);
+  const [addrSearching, setAddrSearching] = useState(false);
 
   async function reload() { setLoading(true); const data = await api.getSites(); setSites(data); setLoading(false); }
   useEffect(function() { reload(); }, []);
 
-  function openNew() { setEditTarget(null); setForm(emptyForm); setShowForm(true); setError(null); }
+  function openNew() { setEditTarget(null); setForm(emptyForm); setShowForm(true); setError(null); setAddrQuery(""); setAddrResults([]); }
   function openEdit(s) {
     setEditTarget(s);
     setForm({ name: s.name, client: s.client || "", lat: s.lat || "", lng: s.lng || "" });
-    setShowForm(true); setError(null);
+    setShowForm(true); setError(null); setAddrQuery(""); setAddrResults([]);
   }
   function setF(key, val) { setForm(function(prev) { const next = Object.assign({}, prev); next[key] = val; return next; }); }
 
@@ -906,16 +909,33 @@ function SiteView() {
     else { setError("GPS取得に失敗しました"); }
   }
 
+  async function searchAddress() {
+    if (!addrQuery.trim()) return;
+    setAddrSearching(true); setAddrResults([]); setError(null);
+    try {
+      const res = await fetch(
+        "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(addrQuery) + "&format=json&limit=5&accept-language=ja&countrycodes=jp",
+        { headers: { "User-Agent": "SanoKogyo-Kintai/1.0" } }
+      );
+      const data = await res.json();
+      setAddrResults(data);
+      if (data.length === 0) setError("住所が見つかりませんでした");
+    } catch (e) { setError("住所検索に失敗しました"); }
+    setAddrSearching(false);
+  }
+
+  function selectAddress(item) {
+    setF("lat", parseFloat(item.lat));
+    setF("lng", parseFloat(item.lon));
+    setAddrResults([]);
+    setAddrQuery(item.display_name.slice(0, 60));
+  }
+
   async function save() {
     if (!form.name) { setError("現場名は必須です"); return; }
     setSaving(true); setError(null);
     try {
-      const data = {
-        name: form.name,
-        client: form.client || null,
-        lat: form.lat !== "" ? parseFloat(form.lat) : null,
-        lng: form.lng !== "" ? parseFloat(form.lng) : null,
-      };
+      const data = { name: form.name, client: form.client || null, lat: form.lat !== "" ? parseFloat(form.lat) : null, lng: form.lng !== "" ? parseFloat(form.lng) : null };
       if (editTarget) { await api.updateSite(editTarget.id, data); } else { await api.createSite(data); }
       setShowForm(false); await reload();
     } catch (e) { setError(e.message); }
@@ -940,42 +960,72 @@ function SiteView() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <div style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 16 }}>{editTarget ? "現場を編集" : "現場を追加"}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>現場名 *</label>
               <input value={form.name} onChange={function(e) { setF("name", e.target.value); }} placeholder="〇〇工事現場"
                 style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
-            <div style={{ gridColumn: "1 / -1" }}>
+            <div>
               <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>元請け名</label>
               <input value={form.client} onChange={function(e) { setF("client", e.target.value); }} placeholder="〇〇建設"
                 style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
             </div>
             <div>
-              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>緯度</label>
-              <input type="number" step="0.000001" value={form.lat} onChange={function(e) { setF("lat", e.target.value); }} placeholder="43.06417"
-                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>住所から座標を検索</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={addrQuery} onChange={function(e) { setAddrQuery(e.target.value); }}
+                  onKeyDown={function(e) { if (e.key === "Enter") searchAddress(); }}
+                  placeholder="例: 北海道登別市中登別町..."
+                  style={{ flex: 1, background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                <button onClick={searchAddress} disabled={addrSearching}
+                  style={{ background: "linear-gradient(135deg, " + PRIMARY + ", " + PRIMARYLT + ")", color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontWeight: 700, fontSize: 13, cursor: addrSearching ? "not-allowed" : "pointer", opacity: addrSearching ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                  {addrSearching ? "検索中..." : "検索"}
+                </button>
+              </div>
+              {addrResults.length > 0 && (
+                <div style={{ marginTop: 6, background: "#fff", border: "1px solid " + BORDER, borderRadius: 8, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
+                  {addrResults.map(function(item, i) {
+                    return (
+                      <button key={i} onClick={function() { selectAddress(item); }}
+                        style={{ display: "block", width: "100%", background: "none", border: "none", borderTop: i === 0 ? "none" : "1px solid " + BORDER, padding: "10px 14px", textAlign: "left", cursor: "pointer", fontSize: 12, color: TEXT, lineHeight: 1.5 }}>
+                        {item.display_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
-              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 6 }}>経度</label>
-              <input type="number" step="0.000001" value={form.lng} onChange={function(e) { setF("lng", e.target.value); }} placeholder="141.34694"
-                style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+              <label style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, display: "block", marginBottom: 8 }}>GPS座標</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div>
+                  <label style={{ color: MUTED, fontSize: 10, display: "block", marginBottom: 4 }}>緯度</label>
+                  <input type="number" step="0.000001" value={form.lat} onChange={function(e) { setF("lat", e.target.value); }} placeholder="43.06417"
+                    style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                </div>
+                <div>
+                  <label style={{ color: MUTED, fontSize: 10, display: "block", marginBottom: 4 }}>経度</label>
+                  <input type="number" step="0.000001" value={form.lng} onChange={function(e) { setF("lng", e.target.value); }} placeholder="141.34694"
+                    style={{ width: "100%", background: "#f8fafc", color: TEXT, border: "1px solid " + BORDER, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none" }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={getCurrentGps} disabled={locating}
+                  style={{ background: "#e8f1fd", color: PRIMARY, border: "1px solid " + PRIMARY + "44", borderRadius: 8, padding: "8px 14px", fontWeight: 600, fontSize: 12, cursor: locating ? "not-allowed" : "pointer", opacity: locating ? 0.6 : 1 }}>
+                  {locating ? "GPS取得中..." : "現在地を使う"}
+                </button>
+                {form.lat && form.lng && (
+                  <a href={"https://www.google.com/maps?q=" + form.lat + "," + form.lng} target="_blank" rel="noreferrer"
+                    style={{ background: GREENSOFT, color: GREEN, border: "1px solid " + GREEN + "44", borderRadius: 8, padding: "8px 14px", fontWeight: 600, fontSize: 12, textDecoration: "none" }}>
+                    地図で確認
+                  </a>
+                )}
+              </div>
             </div>
           </div>
-          <button onClick={getCurrentGps} disabled={locating}
-            style={{ background: "#f8fafc", color: PRIMARY, border: "1px solid " + PRIMARY + "44", borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 13, cursor: locating ? "not-allowed" : "pointer", marginBottom: 14, opacity: locating ? 0.6 : 1 }}>
-            {locating ? "GPS取得中..." : "現在地から座標を取得"}
-          </button>
-          {form.lat && form.lng && (
-            <div style={{ marginBottom: 14 }}>
-              <a href={"https://www.google.com/maps?q=" + form.lat + "," + form.lng} target="_blank" rel="noreferrer"
-                style={{ color: ACCENT, fontSize: 12, textDecoration: "none" }}>
-                [地図で確認]
-              </a>
-            </div>
-          )}
-          {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 14px", color: RED, fontSize: 13, marginBottom: 12 }}>{error}</div>}
-          <div style={{ display: "flex", gap: 10 }}>
+          {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 14px", color: RED, fontSize: 13, marginTop: 14 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button onClick={save} disabled={saving}
               style={{ background: "linear-gradient(135deg, " + PRIMARY + ", " + PRIMARYLT + ")", color: "#fff", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "保存中..." : "保存"}
@@ -995,16 +1045,17 @@ function SiteView() {
               <div key={s.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: TEXT, fontWeight: 800, fontSize: 15, marginBottom: 4 }}>{s.name}</div>
                     {s.client && <div style={{ color: TEXTSUB, fontSize: 12, marginBottom: 6 }}>元請け: {s.client}</div>}
-                    {s.lat && s.lng && (
+                    {s.lat && s.lng ? (
                       <a href={"https://www.google.com/maps?q=" + s.lat + "," + s.lng} target="_blank" rel="noreferrer"
                         style={{ color: ACCENT, fontSize: 12, textDecoration: "none" }}>
-                        [地図で確認] {Number(s.lat).toFixed(5)}, {Number(s.lng).toFixed(5)}
+                        地図で確認
                       </a>
+                    ) : (
+                      <span style={{ color: MUTED, fontSize: 12 }}>座標未設定</span>
                     )}
-                    {!s.lat && <span style={{ color: MUTED, fontSize: 12 }}>座標未設定</span>}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 12 }}>
                     <button onClick={function() { openEdit(s); }}

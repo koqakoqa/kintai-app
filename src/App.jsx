@@ -39,9 +39,11 @@ const api = {
     })});
   },
   updateBreak: function(id, breakMins) { return sb("attendance?id=eq." + id, { method: "PATCH", body: JSON.stringify({ break_mins: breakMins }) }); },
-  upsertAttendance: function(empId, date, data) {
-    return sb("attendance", { method: "POST", prefer: "resolution=merge-duplicates,return=representation",
-      body: JSON.stringify(Object.assign({ employee_id: empId, date: date }, data)) });
+  createAttendance: function(empId, date, data) {
+    return sb("attendance", { method: "POST", body: JSON.stringify(Object.assign({ employee_id: empId, date: date }, data)) });
+  },
+  updateAttendance: function(id, data) {
+    return sb("attendance?id=eq." + id, { method: "PATCH", body: JSON.stringify(data) });
   },
   deleteAttendance: function(id) { return sb("attendance?id=eq." + id, { method: "DELETE", prefer: "return=minimal" }); },
   createLeave: function(data) { return sb("leave_requests", { method: "POST", body: JSON.stringify(data) }); },
@@ -249,11 +251,9 @@ function LoginView(props) {
 function PunchView(props) {
   const currentEmp = props.currentEmp;
   const [clock, setClock] = useState(new Date());
-  const [today, setToday] = useState(null);
+  const [todayRows, setTodayRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [onBreak, setOnBreak] = useState(false);
-  const [breakStart, setBreakStart] = useState(null);
   const [error, setError] = useState(null);
   const [sites, setSites] = useState([]);
   const [selectedSiteId, setSelectedSiteId] = useState("");
@@ -268,42 +268,38 @@ function PunchView(props) {
   async function loadToday() {
     try {
       const todayStr = new Date().toISOString().slice(0, 10);
-      const rows = await sb("attendance?employee_id=eq." + currentEmp.id + "&date=eq." + todayStr + "&select=*");
-      setToday(rows[0] || null);
+      const rows = await sb("attendance?employee_id=eq." + currentEmp.id + "&date=eq." + todayStr + "&select=*,sites(id,name,client)&order=created_at.asc");
+      setTodayRows(rows);
     } catch (e) { setError(e.message); }
     setLoading(false);
   }
 
   useEffect(function() { loadToday(); }, [currentEmp.id]);
 
-  async function punch(type) {
-    setError(null);
+  async function punchIn() {
+    setError(null); setAutoSiteMsg("");
     try {
-      if (type === "checkIn") {
-        setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
-        var autoSiteId = selectedSiteId || null;
-        if (!autoSiteId && loc && sites.length > 0) {
-          var nearest = findNearestSite(loc.lat, loc.lng, sites, 500);
-          if (nearest) { autoSiteId = nearest.id; setSelectedSiteId(nearest.id); setAutoSiteMsg(nearest.name + " を自動設定しました"); }
-        }
-        await api.checkIn(currentEmp.id, nowStr(), loc, autoSiteId); await loadToday();
-      } else if (type === "break") {
-        setOnBreak(true); setBreakStart(new Date());
-      } else if (type === "resume") {
-        setOnBreak(false);
-        const mins = Math.round((new Date() - breakStart) / 60000);
-        await api.updateBreak(today.id, (today.break_mins || 0) + mins); await loadToday();
-      } else if (type === "checkOut") {
-        setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
-        const autoBreak = calcAutoBreak(today.check_in ? today.check_in.slice(0,5) : "", nowStr());
-        const workMins = calcWorkMins(today.check_in, nowStr(), autoBreak);
-        await api.updateBreak(today.id, autoBreak);
-        await api.checkOut(today.id, nowStr(), workMins, loc); await loadToday();
+      setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
+      var autoSiteId = selectedSiteId || null;
+      if (!autoSiteId && loc && sites.length > 0) {
+        var nearest = findNearestSite(loc.lat, loc.lng, sites, 500);
+        if (nearest) { autoSiteId = nearest.id; setSelectedSiteId(nearest.id); setAutoSiteMsg(nearest.name + " を自動設定しました"); }
       }
+      await api.checkIn(currentEmp.id, nowStr(), loc, autoSiteId);
+      setSelectedSiteId(""); await loadToday();
     } catch (e) { setError(e.message); setGpsLoading(false); }
   }
 
-  const statusColor = today && today.status === "退勤済" ? MUTED : today && today.status === "出勤中" ? GREEN : YELLOW;
+  async function punchOut(row) {
+    setError(null);
+    try {
+      setGpsLoading(true); const loc = await getLocation(); setGpsLoading(false);
+      const workMins = calcWorkMins(row.check_in, nowStr(), row.break_mins);
+      await api.checkOut(row.id, nowStr(), workMins, loc); await loadToday();
+    } catch (e) { setError(e.message); setGpsLoading(false); }
+  }
+
+  const activeRow = todayRows.find(function(r) { return r.status === "出勤中"; });
 
   function PBtn(p) {
     const dis = p.disabled || gpsLoading;
@@ -360,7 +356,8 @@ function PunchView(props) {
         <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{fmtDate(clock)}</div>
         <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-3px", color: "#ffffff", fontFamily: "monospace", lineHeight: 1, marginBottom: 8 }}>{clock.toLocaleTimeString("ja-JP")}</div>
         <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{currentEmp.name}</div>
-        {today && <div style={{ marginTop: 12 }}><span style={{ background: "rgba(255,255,255,0.25)", color: "#ffffff", padding: "4px 16px", borderRadius: 99, fontSize: 13, fontWeight: 700, border: "1px solid rgba(255,255,255,0.4)" }}>{today.status}</span></div>}
+        {activeRow && <div style={{ marginTop: 12 }}><span style={{ background: "rgba(255,255,255,0.25)", color: "#ffffff", padding: "4px 16px", borderRadius: 99, fontSize: 13, fontWeight: 700, border: "1px solid rgba(255,255,255,0.4)" }}>出勤中</span></div>}
+        {todayRows.length > 0 && !activeRow && <div style={{ marginTop: 12 }}><span style={{ background: "rgba(255,255,255,0.2)", color: "#ffffff", padding: "4px 16px", borderRadius: 99, fontSize: 13, fontWeight: 700, border: "1px solid rgba(255,255,255,0.3)" }}>本日 {todayRows.length}件記録済</span></div>}
       </div>
       {loading ? <Spinner /> : (
         <div>
@@ -375,46 +372,54 @@ function PunchView(props) {
               {autoSiteMsg && <div style={{ marginTop: 8, color: GREEN, fontSize: 12, fontWeight: 600 }}>{autoSiteMsg}</div>}
             </div>
           )}
-          <Card style={{ marginBottom: 20 }}>
-            <div style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 16 }}>本日の勤務記録</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-              {[{ label: "出勤", val: today && today.check_in ? today.check_in.slice(0,5) : "--:--", color: GREEN },
-                { label: "退勤", val: today && today.check_out ? today.check_out.slice(0,5) : "--:--", color: ACCENT }
-              ].map(function(item) {
+          {todayRows.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              <div style={{ color: TEXTSUB, fontSize: 11, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>本日の勤務記録</div>
+              {todayRows.map(function(row, idx) {
+                const isActive = row.status === "出勤中";
                 return (
-                  <div key={item.label} style={{ textAlign: "center", background: PANEL, borderRadius: 8, padding: "12px 8px", border: "1px solid " + BORDER }}>
-                    <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>{item.label}</div>
-                    <div style={{ color: item.color, fontWeight: 800, fontSize: 20, fontFamily: "monospace" }}>{item.val}</div>
+                  <div key={row.id} style={{ background: CARD, border: "1px solid " + (isActive ? GREEN + "66" : BORDER), borderRadius: 10, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: isActive ? GREEN : STEEL }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700 }}>#{idx+1}</span>
+                        {row.sites && <span style={{ color: PRIMARY, fontSize: 12, fontWeight: 700 }}>{row.sites.name}</span>}
+                        <Badge label={row.status} color={isActive ? GREEN : STEEL} />
+                      </div>
+                      {isActive && (
+                        <button onClick={function() { punchOut(row); }} disabled={gpsLoading}
+                          style={{ background: gpsLoading ? "#e2e8f0" : REDSOFT, color: gpsLoading ? MUTED : RED, border: "2px solid " + (gpsLoading ? "#e2e8f0" : RED), borderRadius: 10, padding: "8px 18px", fontWeight: 800, fontSize: 14, cursor: gpsLoading ? "not-allowed" : "pointer" }}>
+                          退勤
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                      <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                        <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>出勤</div>
+                        <div style={{ color: GREEN, fontWeight: 800, fontSize: 15, fontFamily: "monospace" }}>{row.check_in ? row.check_in.slice(0,5) : "--:--"}</div>
+                      </div>
+                      <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                        <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>退勤</div>
+                        <div style={{ color: ACCENT, fontWeight: 800, fontSize: 15, fontFamily: "monospace" }}>{row.check_out ? row.check_out.slice(0,5) : "--:--"}</div>
+                      </div>
+                      <div style={{ background: "#f8fafc", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
+                        <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>労働</div>
+                        <div style={{ color: YELLOW, fontWeight: 800, fontSize: 15, fontFamily: "monospace" }}>{row.work_mins ? hhmm(row.work_mins) : "--"}</div>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <div style={{ borderTop: "1px solid " + BORDER, paddingTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-              {today && today.sites && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 40 }}>現場</span>
-                  <span style={{ color: PRIMARY, fontSize: 12, fontWeight: 700 }}>{today.sites.name}{today.sites.client ? " (" + today.sites.client + ")" : ""}</span>
-                </div>
-              )}
-              {today && today.check_in && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 40 }}>出勤</span>
-                  <GpsTag lat={today.check_in_lat} lng={today.check_in_lng} loading={gpsLoading && !today.check_out} />
-                </div>
-              )}
-              {today && today.check_out && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: MUTED, fontSize: 10, fontWeight: 700, minWidth: 40 }}>退勤</span>
-                  <GpsTag lat={today.check_out_lat} lng={today.check_out_lng} loading={false} />
-                </div>
-              )}
-              {!today && <span style={{ color: MUTED, fontSize: 11 }}>打刻時にGPS位置を自動記録します</span>}
+          )}
+          {todayRows.length === 0 && (
+            <div style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "20px", textAlign: "center", color: MUTED, fontSize: 13, marginBottom: 20 }}>
+              打刻時にGPS位置を自動記録します
             </div>
-          </Card>
+          )}
           {error && <div style={{ background: REDSOFT, border: "1px solid " + RED + "44", borderRadius: 8, padding: "10px 16px", color: RED, marginBottom: 16, fontSize: 13 }}>{error}</div>}
           <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
-            <PBtn label="出勤" color={GREEN} bg={GREENSOFT} onClick={function() { punch("checkIn"); }} disabled={!!today} />
-            <PBtn label="退勤" color={RED} bg={REDSOFT} onClick={function() { punch("checkOut"); }} disabled={!today || !!(today && today.check_out)} />
+            <PBtn label="出勤" color={GREEN} bg={GREENSOFT} onClick={punchIn} disabled={!!activeRow} />
           </div>
           <div style={{ textAlign: "center", marginTop: 14, color: MUTED, fontSize: 11 }}>打刻時にGPS位置情報を自動記録します</div>
         </div>
@@ -451,7 +456,11 @@ function AttendanceEditModal(props) {
       const wm = calcWorkMins(checkIn, checkOut, breakMins);
       const status = checkOut ? "退勤済" : checkIn ? "出勤中" : "未出勤";
       const data = { check_in: checkIn || null, check_out: checkOut || null, break_mins: breakMins, work_mins: wm, status: status, site_id: siteId || null };
-      await api.upsertAttendance(empId, editDate, data);
+      if (rec) {
+        await api.updateAttendance(rec.id, data);
+      } else {
+        await api.createAttendance(empId, editDate, data);
+      }
       onSaved();
     } catch (e) { setError(e.message); }
     setSaving(false);
@@ -870,34 +879,27 @@ function EmployeeView(props) {
           </div>
         </Card>
       )}
-      <div style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 8, overflow: "hidden", position: "relative" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + PRIMARY + ", " + ACCENT + ")" }} />
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: PANEL }}>
-              {["氏名","有給残","権限","操作"].map(function(h) {
-                return <th key={h} style={{ padding: "13px 16px", textAlign: "left", color: TEXTSUB, fontWeight: 700, fontSize: 11, textTransform: "uppercase", borderBottom: "1px solid " + BORDER }}>{h}</th>;
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map(function(e, i) {
-              return (
-                <tr key={e.id} style={{ borderTop: "1px solid " + GRID, background: i % 2 === 0 ? "transparent" : PANEL + "cc" }}>
-                  <td style={{ padding: "13px 16px", color: TEXT, fontWeight: 700 }}>{e.name}</td>
-                  <td style={{ padding: "13px 16px", color: GREEN, fontWeight: 800, fontFamily: "monospace" }}>{((e.paid_days||0)-(e.used_paid_days||0))+"日"}</td>
-                  <td style={{ padding: "13px 16px" }}><Badge label={e.is_admin ? "管理者" : "一般"} color={e.is_admin ? ACCENT : MUTED} /></td>
-                  <td style={{ padding: "13px 16px" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={function() { openEdit(e); }} style={{ background: ACCENTSOFT, color: ACCENT, border: "1px solid " + ACCENT + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>編集</button>
-                      <button onClick={function() { deleteEmp(e); }} style={{ background: REDSOFT, color: RED, border: "1px solid " + RED + "44", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>削除</button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {employees.map(function(e) {
+          return (
+            <div key={e.id} style={{ background: CARD, border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, " + (e.is_admin ? ACCENT : PRIMARY) + ", " + ACCENT + ")" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ color: TEXT, fontWeight: 800, fontSize: 15, marginBottom: 6 }}>{e.name}</div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <Badge label={e.is_admin ? "管理者" : "一般"} color={e.is_admin ? ACCENT : MUTED} />
+                    <span style={{ color: GREEN, fontWeight: 800, fontFamily: "monospace", fontSize: 14 }}>有給残 {((e.paid_days||0)-(e.used_paid_days||0))}日</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0, marginLeft: 12 }}>
+                  <button onClick={function() { openEdit(e); }} style={{ background: "#e8f1fd", color: PRIMARY, border: "1px solid " + PRIMARY + "44", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontWeight: 700 }}>編集</button>
+                  <button onClick={function() { deleteEmp(e); }} style={{ background: REDSOFT, color: RED, border: "1px solid " + RED + "44", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontWeight: 700 }}>削除</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

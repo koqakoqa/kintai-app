@@ -361,7 +361,7 @@ function PunchView(props) {
       </div>
       {loading ? <Spinner /> : (
         <div>
-          {!today && sites.length > 0 && (
+          {!activeRow && sites.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <label style={{ color: TEXTSUB, fontSize: 12, fontWeight: 700, display: "block", marginBottom: 8 }}>現場を選択 <span style={{ color: MUTED, fontWeight: 400, fontSize: 11 }}>(出勤時に近くの現場を自動設定)</span></label>
               <select value={selectedSiteId} onChange={function(e) { setSelectedSiteId(e.target.value); setAutoSiteMsg(""); }}
